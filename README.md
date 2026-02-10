@@ -118,3 +118,4 @@ MIT License
 - Material Design 3
 - Kotlinx Serialization
 - Kotlinx Coroutines
+"# App-launcher" 
