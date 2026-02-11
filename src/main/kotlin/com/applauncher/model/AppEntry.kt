@@ -10,7 +10,8 @@ data class AppEntry(
     val path: String,
     val iconPath: String? = null,
     val arguments: String = "",
-    val workingDirectory: String = ""
+    val workingDirectory: String = "",
+    val tags: List<String> = emptyList()
 ) {
     companion object {
         fun fromPath(path: String): AppEntry {

@@ -1,6 +1,8 @@
 package com.applauncher.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -13,9 +15,11 @@ import java.io.File
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun EditAppDialog(
     entry: AppEntry?,
+    allTags: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onSave: (AppEntry) -> Unit
 ) {
@@ -23,7 +27,9 @@ fun EditAppDialog(
     var path by remember(entry) { mutableStateOf(entry?.path ?: "") }
     var arguments by remember(entry) { mutableStateOf(entry?.arguments ?: "") }
     var workingDirectory by remember(entry) { mutableStateOf(entry?.workingDirectory ?: "") }
-    
+    var tags by remember(entry) { mutableStateOf(entry?.tags ?: emptyList()) }
+    var newTagText by remember { mutableStateOf("") }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -31,7 +37,9 @@ fun EditAppDialog(
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 OutlinedTextField(
@@ -41,7 +49,7 @@ fun EditAppDialog(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
-                
+
                 OutlinedTextField(
                     value = path,
                     onValueChange = { path = it },
@@ -71,7 +79,7 @@ fun EditAppDialog(
                         }
                     }
                 )
-                
+
                 OutlinedTextField(
                     value = arguments,
                     onValueChange = { arguments = it },
@@ -79,7 +87,7 @@ fun EditAppDialog(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
-                
+
                 OutlinedTextField(
                     value = workingDirectory,
                     onValueChange = { workingDirectory = it },
@@ -100,6 +108,87 @@ fun EditAppDialog(
                         }
                     }
                 )
+
+                // Tags section
+                Text(
+                    text = "タグ",
+                    style = MaterialTheme.typography.labelLarge
+                )
+
+                // Current tags as InputChips
+                if (tags.isNotEmpty()) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        tags.forEach { tag ->
+                            InputChip(
+                                selected = false,
+                                onClick = {},
+                                label = { Text(tag) },
+                                trailingIcon = {
+                                    IconButton(
+                                        onClick = { tags = tags.filter { it != tag } },
+                                        modifier = Modifier.size(18.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Remove tag",
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // New tag input
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = newTagText,
+                        onValueChange = { newTagText = it },
+                        label = { Text("新しいタグ") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    IconButton(
+                        onClick = {
+                            val trimmed = newTagText.trim()
+                            if (trimmed.isNotBlank() && !tags.contains(trimmed)) {
+                                tags = tags + trimmed
+                                newTagText = ""
+                            }
+                        },
+                        enabled = newTagText.trim().isNotBlank() && !tags.contains(newTagText.trim())
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add tag")
+                    }
+                }
+
+                // Suggestion chips for existing tags not yet assigned
+                val suggestions = allTags.filter { it !in tags }
+                if (suggestions.isNotEmpty()) {
+                    Text(
+                        text = "既存のタグから選択",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        suggestions.forEach { tag ->
+                            SuggestionChip(
+                                onClick = { tags = tags + tag },
+                                label = { Text(tag) }
+                            )
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -110,12 +199,14 @@ fun EditAppDialog(
                             name = name,
                             path = path,
                             arguments = arguments,
-                            workingDirectory = workingDirectory
+                            workingDirectory = workingDirectory,
+                            tags = tags
                         ) ?: AppEntry(
                             name = name,
                             path = path,
                             arguments = arguments,
-                            workingDirectory = workingDirectory
+                            workingDirectory = workingDirectory,
+                            tags = tags
                         )
                         onSave(updatedEntry)
                     }
