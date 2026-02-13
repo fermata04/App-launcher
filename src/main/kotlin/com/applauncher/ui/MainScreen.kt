@@ -187,6 +187,7 @@ fun MainScreen(state: AppLauncherState) {
                                 isDragEnabled = isDragEnabled,
                                 onLaunch = {
                                     if (ProcessLauncher.launch(app)) {
+                                        state.recordLaunch(app.id)
                                         snackbarMessage = "${app.name} を起動しました"
                                     } else {
                                         snackbarMessage = "${app.name} の起動に失敗しました"

@@ -27,7 +27,26 @@ import androidx.compose.ui.zIndex
 import com.applauncher.model.AppEntry
 import com.applauncher.util.IconExtractor
 import java.io.File
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
+
+private val dateTimeFormat = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm")
+
+fun formatLastLaunched(timestamp: Long?): String {
+    if (timestamp == null) return "未起動"
+    val diff = System.currentTimeMillis() - timestamp
+    return when {
+        diff < 60_000L -> "たった今"
+        diff < 3_600_000L -> "${diff / 60_000L}分前"
+        diff < 86_400_000L -> "${diff / 3_600_000L}時間前"
+        diff < 604_800_000L -> "${diff / 86_400_000L}日前"
+        else -> Instant.ofEpochMilli(timestamp)
+            .atZone(ZoneId.systemDefault())
+            .format(dateTimeFormat)
+    }
+}
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
@@ -160,6 +179,12 @@ fun AppListItem(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "最終起動: ${formatLastLaunched(entry.lastLaunchedAt)}",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        maxLines = 1
                     )
                     // Tag chips
                     if (entry.tags.isNotEmpty()) {
