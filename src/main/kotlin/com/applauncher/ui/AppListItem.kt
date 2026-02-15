@@ -17,7 +17,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -25,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.applauncher.model.AppEntry
 import com.applauncher.util.IconExtractor
-import java.io.File
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -221,18 +219,11 @@ fun AppListItem(
 @Composable
 fun AppIcon(path: String, modifier: Modifier = Modifier) {
     var icon by remember(path) { mutableStateOf<ImageBitmap?>(null) }
-    
+
     LaunchedEffect(path) {
-        val file = File(path)
-        if (file.exists()) {
-            val extracted = IconExtractor.getIconForFile(file)
-            if (extracted != null) {
-                val resized = IconExtractor.resizeImage(extracted, 32, 32)
-                icon = resized.toComposeImageBitmap()
-            }
-        }
+        icon = IconExtractor.getIconBitmap(path)
     }
-    
+
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(4.dp))
