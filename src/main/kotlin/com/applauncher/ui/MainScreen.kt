@@ -20,10 +20,13 @@ import com.applauncher.model.AppEntry
 import com.applauncher.model.AppLauncherState
 import com.applauncher.model.SortMode
 import com.applauncher.util.ProcessLauncher
+import com.applauncher.util.UpdateChecker
+import com.applauncher.util.UpdateState
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(state: AppLauncherState) {
+fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
     val apps by state.apps.collectAsState()
     val displayApps by state.displayApps.collectAsState()
     val dragState by state.dragState.collectAsState()
@@ -35,6 +38,9 @@ fun MainScreen(state: AppLauncherState) {
     var showAddDialog by remember { mutableStateOf(false) }
     var isDropTargetActive by remember { mutableStateOf(false) }
     var snackbarMessage by remember { mutableStateOf<String?>(null) }
+    val updateState by UpdateChecker.state.collectAsState()
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     // ドラッグオフセットの追跡（IDベース）
     var dragOffsets by remember { mutableStateOf(mapOf<String, Float>()) }
@@ -49,6 +55,15 @@ fun MainScreen(state: AppLauncherState) {
             snackbarMessage = null
         }
     }
+
+    // 起動時にアップデートを自動チェック
+    LaunchedEffect(Unit) {
+        val result = UpdateChecker.checkForUpdate()
+        if (result != null) {
+            showUpdateDialog = true
+        }
+    }
+
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -74,6 +89,34 @@ fun MainScreen(state: AppLauncherState) {
                                 SortMode.NAME_DESC -> "Sort: Z-A"
                             }
                         )
+                    }
+
+                    // アップデート確認ボタン
+                    IconButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                UpdateChecker.checkForUpdate()
+                                showUpdateDialog = true
+                            }
+                        }
+                    ) {
+                        if (updateState is UpdateState.Available) {
+                            BadgedBox(
+                                badge = {
+                                    Badge(containerColor = MaterialTheme.colorScheme.error)
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.SystemUpdateAlt,
+                                    contentDescription = "アップデート確認"
+                                )
+                            }
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.SystemUpdateAlt,
+                                contentDescription = "アップデート確認"
+                            )
+                        }
                     }
 
                     IconButton(onClick = { showAddDialog = true }) {
@@ -259,6 +302,37 @@ fun MainScreen(state: AppLauncherState) {
                 state.addApp(newApp)
                 showAddDialog = false
                 snackbarMessage = "${newApp.name} を追加しました"
+            }
+        )
+    }
+
+    // アップデートダイアログ
+    if (showUpdateDialog && updateState !is UpdateState.Idle) {
+        UpdateDialog(
+            updateState = updateState,
+            onDismiss = {
+                showUpdateDialog = false
+                if (updateState is UpdateState.UpToDate || updateState is UpdateState.Error) {
+                    UpdateChecker.reset()
+                }
+            },
+            onStartDownload = {
+                val current = updateState
+                if (current is UpdateState.Available) {
+                    coroutineScope.launch {
+                        UpdateChecker.downloadUpdate(current.asset)
+                    }
+                }
+            },
+            onInstallAndClose = {
+                val current = updateState
+                if (current is UpdateState.ReadyToInstall) {
+                    if (UpdateChecker.launchInstaller(current.installerFile)) {
+                        onExitApplication()
+                    } else {
+                        snackbarMessage = "インストーラーの起動に失敗しました"
+                    }
+                }
             }
         )
     }
