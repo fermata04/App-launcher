@@ -175,6 +175,14 @@ class AppLauncherState {
         updateDerived()
     }
 
+    fun recordLaunch(id: String) {
+        _apps.value = _apps.value.map { app ->
+            if (app.id == id) app.copy(lastLaunchedAt = System.currentTimeMillis()) else app
+        }
+        saveApps()
+        updateDerived()
+    }
+
     fun deleteTag(tag: String) {
         _apps.value = _apps.value.map { app ->
             if (app.tags.contains(tag)) {
