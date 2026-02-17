@@ -18,31 +18,53 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.applauncher.model.AppEntry
 import com.applauncher.model.AppLauncherState
+import com.applauncher.model.SortMode
 import com.applauncher.util.ProcessLauncher
+import com.applauncher.util.UpdateChecker
+import com.applauncher.util.UpdateState
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(state: AppLauncherState) {
+fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
     val apps by state.apps.collectAsState()
+    val displayApps by state.displayApps.collectAsState()
     val dragState by state.dragState.collectAsState()
-    
+    val sortMode by state.sortMode.collectAsState()
+    val selectedTag by state.selectedTag.collectAsState()
+    val allTags by state.allTags.collectAsState()
+
     var editingApp by remember { mutableStateOf<AppEntry?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
     var isDropTargetActive by remember { mutableStateOf(false) }
     var snackbarMessage by remember { mutableStateOf<String?>(null) }
-    
+    val updateState by UpdateChecker.state.collectAsState()
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
     // ドラッグオフセットの追跡（IDベース）
     var dragOffsets by remember { mutableStateOf(mapOf<String, Float>()) }
-    
+
+    val isDragEnabled = sortMode == SortMode.MANUAL && selectedTag == null
+
     val snackbarHostState = remember { SnackbarHostState() }
-    
+
     LaunchedEffect(snackbarMessage) {
         snackbarMessage?.let {
             snackbarHostState.showSnackbar(it)
             snackbarMessage = null
         }
     }
-    
+
+    // 起動時にアップデートを自動チェック
+    LaunchedEffect(Unit) {
+        val result = UpdateChecker.checkForUpdate()
+        if (result != null) {
+            showUpdateDialog = true
+        }
+    }
+
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -53,6 +75,50 @@ fun MainScreen(state: AppLauncherState) {
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
                 actions = {
+                    // Sort toggle button
+                    IconButton(onClick = { state.toggleSortMode() }) {
+                        Icon(
+                            imageVector = when (sortMode) {
+                                SortMode.MANUAL -> Icons.Default.SwapVert
+                                SortMode.NAME_ASC -> Icons.Default.ArrowUpward
+                                SortMode.NAME_DESC -> Icons.Default.ArrowDownward
+                            },
+                            contentDescription = when (sortMode) {
+                                SortMode.MANUAL -> "Sort: Manual"
+                                SortMode.NAME_ASC -> "Sort: A-Z"
+                                SortMode.NAME_DESC -> "Sort: Z-A"
+                            }
+                        )
+                    }
+
+                    // アップデート確認ボタン
+                    IconButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                UpdateChecker.checkForUpdate()
+                                showUpdateDialog = true
+                            }
+                        }
+                    ) {
+                        if (updateState is UpdateState.Available) {
+                            BadgedBox(
+                                badge = {
+                                    Badge(containerColor = MaterialTheme.colorScheme.error)
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.SystemUpdateAlt,
+                                    contentDescription = "アップデート確認"
+                                )
+                            }
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.SystemUpdateAlt,
+                                contentDescription = "アップデート確認"
+                            )
+                        }
+                    }
+
                     IconButton(onClick = { showAddDialog = true }) {
                         Icon(
                             imageVector = Icons.Default.Add,
@@ -82,6 +148,33 @@ fun MainScreen(state: AppLauncherState) {
             } else {
                 // アプリリスト
                 Column(modifier = Modifier.fillMaxSize()) {
+                    // Tag filter bar
+                    if (allTags.isNotEmpty()) {
+                        LazyRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            item {
+                                FilterChip(
+                                    selected = selectedTag == null,
+                                    onClick = { state.setTagFilter(null) },
+                                    label = { Text("すべて") }
+                                )
+                            }
+                            items(allTags) { tag ->
+                                FilterChip(
+                                    selected = selectedTag == tag,
+                                    onClick = {
+                                        state.setTagFilter(if (selectedTag == tag) null else tag)
+                                    },
+                                    label = { Text(tag) }
+                                )
+                            }
+                        }
+                    }
+
                     // ドロップエリア（上部）
                     DropTargetArea(
                         isActive = isDropTargetActive,
@@ -108,7 +201,7 @@ fun MainScreen(state: AppLauncherState) {
                             }
                         }
                     }
-                    
+
                     // アプリリスト
                     LazyColumn(
                         modifier = Modifier
@@ -118,24 +211,25 @@ fun MainScreen(state: AppLauncherState) {
                         contentPadding = PaddingValues(vertical = 16.dp)
                     ) {
                         itemsIndexed(
-                            items = apps,
+                            items = displayApps,
                             key = { _, app -> app.id }
                         ) { index, app ->
                             // IDベースでドラッグ状態を判定
                             val isDragging = dragState?.draggedId == app.id
                             val currentDragIndex = dragState?.currentIndex ?: -1
-                            val isDropTarget = !isDragging && 
-                                dragState != null && 
+                            val isDropTarget = !isDragging &&
+                                dragState != null &&
                                 index == currentDragIndex
-                            
+
                             AppListItem(
                                 entry = app,
-                                index = index,
                                 isDragging = isDragging,
                                 isDropTarget = isDropTarget,
                                 dragOffset = dragOffsets[app.id] ?: 0f,
+                                isDragEnabled = isDragEnabled,
                                 onLaunch = {
                                     if (ProcessLauncher.launch(app)) {
+                                        state.recordLaunch(app.id)
                                         snackbarMessage = "${app.name} を起動しました"
                                     } else {
                                         snackbarMessage = "${app.name} の起動に失敗しました"
@@ -154,14 +248,14 @@ fun MainScreen(state: AppLauncherState) {
                                 onDrag = { delta ->
                                     val currentOffset = (dragOffsets[app.id] ?: 0f) + delta
                                     dragOffsets = dragOffsets + (app.id to currentOffset)
-                                    
+
                                     // 現在の実際のインデックスを取得
                                     val currentAppIndex = state.getAppIndex(app.id)
                                     if (currentAppIndex >= 0) {
                                         // 現在のドラッグ位置からターゲットインデックスを計算
                                         val itemHeight = 72f // おおよそのアイテム高さ
                                         val draggedItems = (currentOffset / itemHeight).toInt()
-                                        val newIndex = (currentAppIndex + draggedItems).coerceIn(0, apps.size - 1)
+                                        val newIndex = (currentAppIndex + draggedItems).coerceIn(0, displayApps.size - 1)
                                         state.updateDragPosition(newIndex)
                                     }
                                 },
@@ -182,11 +276,12 @@ fun MainScreen(state: AppLauncherState) {
             }
         }
     }
-    
+
     // 編集ダイアログ
     if (editingApp != null) {
         EditAppDialog(
             entry = editingApp,
+            allTags = allTags,
             onDismiss = { editingApp = null },
             onSave = { updatedApp ->
                 state.updateApp(updatedApp)
@@ -195,16 +290,48 @@ fun MainScreen(state: AppLauncherState) {
             }
         )
     }
-    
+
     // 追加ダイアログ
     if (showAddDialog) {
         EditAppDialog(
             entry = null,
+            allTags = allTags,
             onDismiss = { showAddDialog = false },
             onSave = { newApp ->
                 state.addApp(newApp)
                 showAddDialog = false
                 snackbarMessage = "${newApp.name} を追加しました"
+            }
+        )
+    }
+
+    // アップデートダイアログ
+    if (showUpdateDialog && updateState !is UpdateState.Idle) {
+        UpdateDialog(
+            updateState = updateState,
+            onDismiss = {
+                showUpdateDialog = false
+                if (updateState is UpdateState.UpToDate || updateState is UpdateState.Error) {
+                    UpdateChecker.reset()
+                }
+            },
+            onStartDownload = {
+                val current = updateState
+                if (current is UpdateState.Available) {
+                    coroutineScope.launch {
+                        UpdateChecker.downloadUpdate(current.asset)
+                    }
+                }
+            },
+            onInstallAndClose = {
+                val current = updateState
+                if (current is UpdateState.ReadyToInstall) {
+                    if (UpdateChecker.launchInstaller(current.installerFile)) {
+                        onExitApplication()
+                    } else {
+                        snackbarMessage = "インストーラーの起動に失敗しました"
+                    }
+                }
             }
         )
     }
@@ -225,26 +352,26 @@ fun EmptyStateContent(onAddClick: () -> Unit) {
             modifier = Modifier.size(96.dp),
             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
         )
-        
+
         Spacer(modifier = Modifier.height(24.dp))
-        
+
         Text(
             text = "アプリが登録されていません",
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center
         )
-        
+
         Spacer(modifier = Modifier.height(8.dp))
-        
+
         Text(
             text = "実行ファイル（.exe, .lnk など）を\nここにドラッグ＆ドロップしてください",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
         )
-        
+
         Spacer(modifier = Modifier.height(24.dp))
-        
+
         Button(onClick = onAddClick) {
             Icon(
                 imageVector = Icons.Default.Add,

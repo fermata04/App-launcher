@@ -1,1 +1,16 @@
+# Gradle
+.gradle/
+build/
+
+# IDE
+.idea/
+*.iml
+
+# Claude Code
+.claude/
+
+# Secrets
 token.txt
+
+# App resources (generated)
+src/main/resources/icon.ico

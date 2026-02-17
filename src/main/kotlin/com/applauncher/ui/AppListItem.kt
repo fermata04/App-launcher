@@ -17,25 +17,43 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.applauncher.model.AppEntry
 import com.applauncher.util.IconExtractor
-import java.io.File
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalFoundationApi::class)
+private val dateTimeFormat = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm")
+
+fun formatLastLaunched(timestamp: Long?): String {
+    if (timestamp == null) return "未起動"
+    val diff = System.currentTimeMillis() - timestamp
+    return when {
+        diff < 60_000L -> "たった今"
+        diff < 3_600_000L -> "${diff / 60_000L}分前"
+        diff < 86_400_000L -> "${diff / 3_600_000L}時間前"
+        diff < 604_800_000L -> "${diff / 86_400_000L}日前"
+        else -> Instant.ofEpochMilli(timestamp)
+            .atZone(ZoneId.systemDefault())
+            .format(dateTimeFormat)
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun AppListItem(
     entry: AppEntry,
-    index: Int,
     isDragging: Boolean,
     isDropTarget: Boolean,
     dragOffset: Float,
+    isDragEnabled: Boolean = true,
     onLaunch: () -> Unit,
     onRemove: () -> Unit,
     onEdit: () -> Unit,
@@ -45,18 +63,18 @@ fun AppListItem(
     modifier: Modifier = Modifier
 ) {
     var showContextMenu by remember { mutableStateOf(false) }
-    
+
     // アニメーション
     val scale by animateFloatAsState(
         targetValue = if (isDragging) 1.05f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
     )
-    
+
     val elevation by animateDpAsState(
         targetValue = if (isDragging) 8.dp else 2.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
     )
-    
+
     val backgroundColor by animateColorAsState(
         targetValue = when {
             isDragging -> DragHighlight.copy(alpha = 0.3f)
@@ -65,7 +83,7 @@ fun AppListItem(
         },
         animationSpec = tween(150)
     )
-    
+
     val borderColor by animateColorAsState(
         targetValue = when {
             isDragging -> DragHighlight
@@ -74,13 +92,13 @@ fun AppListItem(
         },
         animationSpec = tween(150)
     )
-    
+
     // ドロップターゲットのアニメーション（上下移動）
     val targetOffset by animateFloatAsState(
         targetValue = if (isDropTarget) 8f else 0f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
     )
-    
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -88,27 +106,33 @@ fun AppListItem(
             .offset { IntOffset(0, (if (isDragging) dragOffset else targetOffset).roundToInt()) }
             .scale(scale)
     ) {
+        val cardModifier = Modifier
+            .fillMaxWidth()
+            .shadow(elevation, RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(8.dp))
+            .border(2.dp, borderColor, RoundedCornerShape(8.dp))
+            .let { mod ->
+                if (isDragEnabled) {
+                    mod.pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragStart = { onDragStart() },
+                            onDragEnd = { onDragEnd() },
+                            onDragCancel = { onDragEnd() },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                onDrag(dragAmount.y)
+                            }
+                        )
+                    }
+                } else mod
+            }
+            .combinedClickable(
+                onClick = onLaunch,
+                onLongClick = { showContextMenu = true }
+            )
+
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(elevation, RoundedCornerShape(8.dp))
-                .clip(RoundedCornerShape(8.dp))
-                .border(2.dp, borderColor, RoundedCornerShape(8.dp))
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { onDragStart() },
-                        onDragEnd = { onDragEnd() },
-                        onDragCancel = { onDragEnd() },
-                        onDrag = { change, dragAmount ->
-                            change.consume()
-                            onDrag(dragAmount.y)
-                        }
-                    )
-                }
-                .combinedClickable(
-                    onClick = onLaunch,
-                    onLongClick = { showContextMenu = true }
-                ),
+            modifier = cardModifier,
             colors = CardDefaults.cardColors(containerColor = backgroundColor),
             shape = RoundedCornerShape(8.dp)
         ) {
@@ -118,25 +142,27 @@ fun AppListItem(
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // ドラッグハンドル
-                Icon(
-                    imageVector = Icons.Default.DragIndicator,
-                    contentDescription = "Drag",
-                    modifier = Modifier
-                        .size(24.dp)
-                        .padding(end = 8.dp),
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                )
-                
+                // ドラッグハンドル (only when drag is enabled)
+                if (isDragEnabled) {
+                    Icon(
+                        imageVector = Icons.Default.DragIndicator,
+                        contentDescription = "Drag",
+                        modifier = Modifier
+                            .size(24.dp)
+                            .padding(end = 8.dp),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                }
+
                 // アプリアイコン
                 AppIcon(
                     path = entry.path,
                     modifier = Modifier.size(32.dp)
                 )
-                
+
                 Spacer(modifier = Modifier.width(12.dp))
-                
-                // アプリ名とパス
+
+                // アプリ名・パス・タグ
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = entry.name,
@@ -151,8 +177,53 @@ fun AppListItem(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    Text(
+                        text = "最終起動: ${formatLastLaunched(entry.lastLaunchedAt)}",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                        maxLines = 1
+                    )
+                    // Tag chips
+                    if (entry.tags.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            val displayTags = entry.tags.take(3)
+                            val remaining = entry.tags.size - 3
+                            displayTags.forEach { tag ->
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.height(20.dp)
+                                ) {
+                                    Text(
+                                        text = tag,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                            if (remaining > 0) {
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier.height(20.dp)
+                                ) {
+                                    Text(
+                                        text = "+$remaining",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
-                
+
                 // アクションボタン
                 Row {
                     IconButton(onClick = onLaunch) {
@@ -162,7 +233,7 @@ fun AppListItem(
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
-                    
+
                     IconButton(onClick = { showContextMenu = true }) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
@@ -173,7 +244,7 @@ fun AppListItem(
                 }
             }
         }
-        
+
         // コンテキストメニュー
         DropdownMenu(
             expanded = showContextMenu,
@@ -208,7 +279,7 @@ fun AppListItem(
                 },
                 leadingIcon = {
                     Icon(
-                        Icons.Default.Delete, 
+                        Icons.Default.Delete,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.error
                     )
@@ -221,18 +292,11 @@ fun AppListItem(
 @Composable
 fun AppIcon(path: String, modifier: Modifier = Modifier) {
     var icon by remember(path) { mutableStateOf<ImageBitmap?>(null) }
-    
+
     LaunchedEffect(path) {
-        val file = File(path)
-        if (file.exists()) {
-            val extracted = IconExtractor.getIconForFile(file)
-            if (extracted != null) {
-                val resized = IconExtractor.resizeImage(extracted, 32, 32)
-                icon = resized.toComposeImageBitmap()
-            }
-        }
+        icon = IconExtractor.getIconBitmap(path)
     }
-    
+
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(4.dp))

@@ -30,7 +30,7 @@ fun main() = application {
         MaterialTheme(
             colorScheme = AppDarkColorScheme
         ) {
-            MainScreen(state)
+            MainScreen(state, onExitApplication = ::exitApplication)
         }
     }
 }
