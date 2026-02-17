@@ -223,7 +223,6 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
 
                             AppListItem(
                                 entry = app,
-                                index = index,
                                 isDragging = isDragging,
                                 isDropTarget = isDropTarget,
                                 dragOffset = dragOffsets[app.id] ?: 0f,

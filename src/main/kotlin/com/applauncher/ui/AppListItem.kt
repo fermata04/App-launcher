@@ -50,7 +50,6 @@ fun formatLastLaunched(timestamp: Long?): String {
 @Composable
 fun AppListItem(
     entry: AppEntry,
-    index: Int,
     isDragging: Boolean,
     isDropTarget: Boolean,
     dragOffset: Float,
