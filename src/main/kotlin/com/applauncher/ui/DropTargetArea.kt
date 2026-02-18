@@ -6,7 +6,6 @@ import androidx.compose.ui.awt.ComposePanel
 import androidx.compose.ui.layout.Layout
 import com.applauncher.model.AppEntry
 import com.applauncher.model.AppLauncherState
-import com.applauncher.util.DropTargetHandler
 import java.awt.datatransfer.DataFlavor
 import java.awt.dnd.*
 import java.io.File

@@ -8,7 +8,6 @@ data class AppEntry(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
     val path: String,
-    val iconPath: String? = null,
     val arguments: String = "",
     val workingDirectory: String = "",
     val tags: List<String> = emptyList(),
