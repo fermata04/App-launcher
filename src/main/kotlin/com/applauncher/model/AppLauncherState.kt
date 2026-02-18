@@ -27,6 +27,9 @@ class AppLauncherState {
     private val _selectedTag = MutableStateFlow<String?>(null)
     val selectedTag: StateFlow<String?> = _selectedTag.asStateFlow()
 
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
     // Derived: all unique tags across all apps
     private val _allTags = MutableStateFlow<List<String>>(emptyList())
     val allTags: StateFlow<List<String>> = _allTags.asStateFlow()
@@ -48,9 +51,14 @@ class AppLauncherState {
             .sorted()
 
         // Update displayApps
-        val filtered = _selectedTag.value?.let { tag ->
+        var filtered = _selectedTag.value?.let { tag ->
             _apps.value.filter { it.tags.contains(tag) }
         } ?: _apps.value
+
+        val query = _searchQuery.value
+        if (query.isNotBlank()) {
+            filtered = filtered.filter { it.name.contains(query, ignoreCase = true) }
+        }
 
         _displayApps.value = when (_sortMode.value) {
             SortMode.MANUAL -> filtered
@@ -113,8 +121,8 @@ class AppLauncherState {
     }
 
     fun startDrag(appId: String) {
-        // Disable drag when sort/filter is active
-        if (_sortMode.value != SortMode.MANUAL || _selectedTag.value != null) return
+        // Disable drag when sort/filter/search is active
+        if (_sortMode.value != SortMode.MANUAL || _selectedTag.value != null || _searchQuery.value.isNotBlank()) return
 
         val index = _apps.value.indexOfFirst { it.id == appId }
         if (index >= 0) {
@@ -156,6 +164,11 @@ class AppLauncherState {
             SortMode.NAME_ASC -> SortMode.NAME_DESC
             SortMode.NAME_DESC -> SortMode.MANUAL
         }
+        updateDerived()
+    }
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
         updateDerived()
     }
 

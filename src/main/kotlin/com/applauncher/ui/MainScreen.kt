@@ -13,6 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -33,6 +35,10 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
     val sortMode by state.sortMode.collectAsState()
     val selectedTag by state.selectedTag.collectAsState()
     val allTags by state.allTags.collectAsState()
+    val searchQuery by state.searchQuery.collectAsState()
+
+    var showSearchBar by remember { mutableStateOf(false) }
+    val searchFocusRequester = remember { FocusRequester() }
 
     var editingApp by remember { mutableStateOf<AppEntry?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
@@ -45,7 +51,7 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
     // ドラッグオフセットの追跡（IDベース）
     var dragOffsets by remember { mutableStateOf(mapOf<String, Float>()) }
 
-    val isDragEnabled = sortMode == SortMode.MANUAL && selectedTag == null
+    val isDragEnabled = sortMode == SortMode.MANUAL && selectedTag == null && searchQuery.isBlank()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -75,6 +81,19 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
                 actions = {
+                    // Search toggle button
+                    IconButton(onClick = {
+                        showSearchBar = !showSearchBar
+                        if (!showSearchBar) {
+                            state.setSearchQuery("")
+                        }
+                    }) {
+                        Icon(
+                            imageVector = if (showSearchBar) Icons.Default.SearchOff else Icons.Default.Search,
+                            contentDescription = "検索"
+                        )
+                    }
+
                     // Sort toggle button
                     IconButton(onClick = { state.toggleSortMode() }) {
                         Icon(
@@ -148,6 +167,46 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
             } else {
                 // アプリリスト
                 Column(modifier = Modifier.fillMaxSize()) {
+                    // Search bar
+                    AnimatedVisibility(
+                        visible = showSearchBar,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { state.setSearchQuery(it) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .focusRequester(searchFocusRequester),
+                            placeholder = { Text("アプリ名で検索...") },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { state.setSearchQuery("") }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "クリア"
+                                        )
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        LaunchedEffect(Unit) {
+                            searchFocusRequester.requestFocus()
+                        }
+                    }
+
                     // Tag filter bar
                     if (allTags.isNotEmpty()) {
                         LazyRow(
