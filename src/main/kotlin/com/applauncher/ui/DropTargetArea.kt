@@ -6,6 +6,7 @@ import androidx.compose.ui.awt.ComposePanel
 import androidx.compose.ui.layout.Layout
 import com.applauncher.model.AppEntry
 import com.applauncher.model.AppLauncherState
+import com.applauncher.util.AppLogger
 import java.awt.datatransfer.DataFlavor
 import java.awt.dnd.*
 import java.io.File
@@ -84,7 +85,7 @@ fun setupWindowDropTarget(window: java.awt.Window, state: AppLauncherState) {
                     @Suppress("UNCHECKED_CAST")
                     val files = transferable.getTransferData(DataFlavor.javaFileListFlavor) as List<File>
                     val executableFiles = files.filter { 
-                        it.extension.lowercase() in listOf("exe", "bat", "cmd", "lnk", "msc")
+                        it.extension.lowercase() in listOf("exe", "bat", "cmd", "lnk")
                     }
                     
                     executableFiles.forEach { file ->
@@ -98,7 +99,7 @@ fun setupWindowDropTarget(window: java.awt.Window, state: AppLauncherState) {
                 GlobalDropHandler.onDragExit?.invoke()
                 dtde.dropComplete(true)
             } catch (e: Exception) {
-                e.printStackTrace()
+                AppLogger.error("Failed to handle file drop", e)
                 dtde.dropComplete(false)
                 GlobalDropHandler.onDragExit?.invoke()
             }

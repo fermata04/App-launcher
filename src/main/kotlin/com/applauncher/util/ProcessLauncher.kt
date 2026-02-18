@@ -4,7 +4,16 @@ import com.applauncher.model.AppEntry
 import java.io.File
 
 object ProcessLauncher {
-    
+
+    private fun parseArguments(args: String): List<String> {
+        val result = mutableListOf<String>()
+        val regex = Regex(""""([^"]*)"|(\S+)""")
+        regex.findAll(args).forEach { match ->
+            result.add(match.groupValues[1].ifEmpty { match.groupValues[2] })
+        }
+        return result
+    }
+
     fun launch(entry: AppEntry): Boolean {
         return try {
             val file = File(entry.path)
@@ -19,15 +28,12 @@ object ProcessLauncher {
                 "exe", "bat", "cmd" -> {
                     val command = mutableListOf(entry.path)
                     if (entry.arguments.isNotBlank()) {
-                        command.addAll(entry.arguments.split(" ").filter { it.isNotBlank() })
+                        command.addAll(parseArguments(entry.arguments))
                     }
                     processBuilder.command(command)
                 }
                 "lnk" -> {
                     processBuilder.command("cmd", "/c", "start", "", entry.path)
-                }
-                "msc" -> {
-                    processBuilder.command("mmc", entry.path)
                 }
                 else -> {
                     processBuilder.command("cmd", "/c", "start", "", entry.path)
@@ -44,7 +50,7 @@ object ProcessLauncher {
             processBuilder.start()
             true
         } catch (e: Exception) {
-            e.printStackTrace()
+            AppLogger.error("Failed to launch: ${entry.path}", e)
             false
         }
     }

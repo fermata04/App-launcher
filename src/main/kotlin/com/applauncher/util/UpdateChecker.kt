@@ -12,6 +12,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
+import java.security.MessageDigest
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 
@@ -154,6 +155,16 @@ object UpdateChecker {
                     }
                 }
 
+                // SHA-256 ハッシュ検証
+                val expectedHash = fetchExpectedHash(asset.name)
+                if (expectedHash != null) {
+                    if (!verifyFileHash(outputFile, expectedHash)) {
+                        outputFile.delete()
+                        _state.value = UpdateState.Error("ファイルの整合性検証に失敗しました")
+                        return@withContext null
+                    }
+                }
+
                 _state.value = UpdateState.ReadyToInstall(outputFile)
                 outputFile
             }
@@ -165,6 +176,56 @@ object UpdateChecker {
         }
     }
 
+    private fun verifyFileHash(file: File, expectedHash: String): Boolean {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(8192)
+            var read: Int
+            while (input.read(buffer).also { read = it } != -1) {
+                digest.update(buffer, 0, read)
+            }
+        }
+        val actualHash = digest.digest().joinToString("") { "%02x".format(it) }
+        return actualHash.equals(expectedHash, ignoreCase = true)
+    }
+
+    private fun fetchExpectedHash(assetName: String): String? {
+        try {
+            val request = Request.Builder()
+                .url(RELEASES_URL)
+                .header("Accept", "application/vnd.github.v3+json")
+                .get()
+                .build()
+            val response = client.newCall(request).execute()
+            val releaseBody = response.use { resp ->
+                if (!resp.isSuccessful) return null
+                resp.body?.string() ?: return null
+            }
+            val release = json.decodeFromString<GitHubRelease>(releaseBody)
+            val hashAsset = release.assets.firstOrNull {
+                it.name.equals("SHA256SUMS.txt", ignoreCase = true)
+            } ?: return null
+
+            val hashRequest = Request.Builder()
+                .url(hashAsset.browserDownloadUrl)
+                .build()
+            val hashResponse = client.newCall(hashRequest).execute()
+            val hashContent = hashResponse.use { hashResp ->
+                if (!hashResp.isSuccessful) return null
+                hashResp.body?.string() ?: return null
+            }
+            // Format: "<hash>  <filename>" or "<hash> <filename>"
+            return hashContent.lines()
+                .map { it.trim() }
+                .firstOrNull { line -> line.endsWith(assetName, ignoreCase = true) }
+                ?.split("\\s+".toRegex())
+                ?.firstOrNull()
+        } catch (e: Exception) {
+            AppLogger.warn("Failed to fetch hash for $assetName", e)
+            return null
+        }
+    }
+
     fun launchInstaller(installerFile: File): Boolean {
         return try {
             ProcessBuilder("cmd", "/c", "start", "", installerFile.absolutePath)
@@ -172,7 +233,7 @@ object UpdateChecker {
                 .start()
             true
         } catch (e: Exception) {
-            e.printStackTrace()
+            AppLogger.error("Failed to launch installer: ${installerFile.absolutePath}", e)
             false
         }
     }

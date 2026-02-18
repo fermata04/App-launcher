@@ -5,7 +5,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import com.applauncher.util.AppLogger
 import java.io.File
+import java.nio.file.FileSystems
+import java.nio.file.Files
+import java.nio.file.attribute.AclEntry
+import java.nio.file.attribute.AclEntryPermission
+import java.nio.file.attribute.AclEntryType
+import java.nio.file.attribute.AclFileAttributeView
+import java.nio.file.attribute.PosixFilePermission
 
 enum class SortMode {
     MANUAL, NAME_ASC, NAME_DESC
@@ -74,7 +82,7 @@ class AppLauncherState {
                 _apps.value = json.decodeFromString<List<AppEntry>>(content)
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            AppLogger.error("Failed to load apps from ${configFile.path}", e)
         }
     }
 
@@ -82,8 +90,41 @@ class AppLauncherState {
         try {
             configFile.parentFile?.mkdirs()
             configFile.writeText(json.encodeToString(_apps.value))
+            setFilePermissionsOwnerOnly(configFile)
         } catch (e: Exception) {
-            e.printStackTrace()
+            AppLogger.error("Failed to save apps to ${configFile.path}", e)
+        }
+    }
+
+    private fun setFilePermissionsOwnerOnly(file: File) {
+        try {
+            val path = file.toPath()
+            val fileStore = Files.getFileStore(path)
+            if (fileStore.supportsFileAttributeView(AclFileAttributeView::class.java)) {
+                // Windows: ACL で所有者のみ読み書き可能に設定
+                val aclView = Files.getFileAttributeView(path, AclFileAttributeView::class.java)
+                val owner = aclView.owner
+                val aclEntry = AclEntry.newBuilder()
+                    .setType(AclEntryType.ALLOW)
+                    .setPrincipal(owner)
+                    .setPermissions(
+                        AclEntryPermission.READ_DATA,
+                        AclEntryPermission.WRITE_DATA,
+                        AclEntryPermission.READ_ATTRIBUTES,
+                        AclEntryPermission.WRITE_ATTRIBUTES,
+                        AclEntryPermission.DELETE
+                    )
+                    .build()
+                aclView.acl = listOf(aclEntry)
+            } else if (fileStore.supportsFileAttributeView("posix")) {
+                // Unix: POSIX パーミッションで所有者のみ
+                Files.setPosixFilePermissions(path, setOf(
+                    PosixFilePermission.OWNER_READ,
+                    PosixFilePermission.OWNER_WRITE
+                ))
+            }
+        } catch (e: Exception) {
+            AppLogger.warn("Failed to set file permissions on ${file.path}", e)
         }
     }
 
