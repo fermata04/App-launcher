@@ -21,13 +21,14 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: 'gradle'
 
       - name: Build MSI
         shell: bash
-        run: ./gradlew packageMsi
+        run: ./gradlew clean packageMsi
 
       - name: Find MSI and generate SHA256SUMS.txt
-        id: sha256
+        id: find_and_hash_msi
         shell: pwsh
         run: |
           $msi = Get-ChildItem -Path "build/compose/binaries/main/msi" -Filter "*.msi" | Select-Object -First 1
@@ -42,9 +43,13 @@ jobs:
       - name: Create GitHub Release
         shell: bash
         run: |
-          gh release create "${{ github.ref_name }}" \
-            --generate-notes \
-            "${{ steps.sha256.outputs.msi_path }}" \
-            "SHA256SUMS.txt"
+          if gh release view "${{ github.ref_name }}" &>/dev/null; then
+            echo "Release ${{ github.ref_name }} already exists. Skipping."
+          else
+            gh release create "${{ github.ref_name }}" \
+              --generate-notes \
+              "${{ steps.find_and_hash_msi.outputs.msi_path }}" \
+              "SHA256SUMS.txt"
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
