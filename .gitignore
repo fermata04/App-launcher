@@ -12,5 +12,9 @@ build/
 # Secrets
 token.txt
 
+# Internal docs (security reports, session handovers)
+HANDOVER*.md
+security_report.md
+
 # App resources (generated)
 src/main/resources/icon.ico
