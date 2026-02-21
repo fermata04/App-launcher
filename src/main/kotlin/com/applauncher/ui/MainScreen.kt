@@ -156,7 +156,6 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
             if (apps.isEmpty()) {
                 // 空の状態 - ドロップターゲット
                 DropTargetArea(
-                    isActive = isDropTargetActive,
                     onActiveChange = { isDropTargetActive = it },
                     modifier = Modifier.fillMaxSize()
                 ) {
@@ -236,7 +235,6 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
 
                     // ドロップエリア（上部）
                     DropTargetArea(
-                        isActive = isDropTargetActive,
                         onActiveChange = { isDropTargetActive = it },
                         modifier = Modifier
                             .fillMaxWidth()

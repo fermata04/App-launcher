@@ -21,7 +21,6 @@ object GlobalDropHandler {
 
 @Composable
 fun DropTargetArea(
-    isActive: Boolean,
     onActiveChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
