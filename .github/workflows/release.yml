@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Build MSI
+        shell: bash
+        run: ./gradlew packageMsi
+
+      - name: Find MSI and generate SHA256SUMS.txt
+        id: sha256
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem -Path "build/compose/binaries/main/msi" -Filter "*.msi" | Select-Object -First 1
+          if (-not $msi) { throw "MSI file not found" }
+          $hash = (Get-FileHash -Algorithm SHA256 -Path $msi.FullName).Hash.ToLower()
+          "$hash  $($msi.Name)" | Out-File -FilePath "SHA256SUMS.txt" -Encoding utf8NoBOM
+          echo "msi_path=$($msi.FullName)" >> $env:GITHUB_OUTPUT
+          echo "msi_name=$($msi.Name)" >> $env:GITHUB_OUTPUT
+          echo "MSI: $($msi.Name)"
+          echo "SHA256: $hash"
+
+      - name: Create GitHub Release
+        shell: bash
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --generate-notes \
+            "${{ steps.sha256.outputs.msi_path }}" \
+            "SHA256SUMS.txt"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
