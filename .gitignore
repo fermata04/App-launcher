@@ -16,5 +16,3 @@ token.txt
 HANDOVER*.md
 security_report.md
 
-# App resources (generated)
-src/main/resources/icon.ico
