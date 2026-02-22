@@ -41,6 +41,7 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
     val allTags by state.allTags.collectAsState()
     val searchQuery by state.searchQuery.collectAsState()
     val viewMode by state.viewMode.collectAsState()
+    val recentApps by state.recentApps.collectAsState()
 
     var showSearchBar by remember { mutableStateOf(false) }
     val searchFocusRequester = remember { FocusRequester() }
@@ -249,6 +250,50 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
                                     label = { Text(tag) }
                                 )
                             }
+                        }
+                    }
+
+                    // 最近使ったアプリセクション
+                    AnimatedVisibility(
+                        visible = recentApps.isNotEmpty() && selectedTag == null && searchQuery.isBlank(),
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        Column {
+                            Text(
+                                text = "最近使ったアプリ",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                            )
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                items(recentApps, key = { it.id }) { app ->
+                                    RecentAppItem(
+                                        entry = app,
+                                        onLaunch = {
+                                            if (ProcessLauncher.launch(app)) {
+                                                state.recordLaunch(app.id)
+                                                snackbarMessage = "${app.name} を起動しました"
+                                            } else {
+                                                snackbarMessage = "${app.name} の起動に失敗しました"
+                                            }
+                                        },
+                                        onRemove = {
+                                            state.removeApp(app.id)
+                                            snackbarMessage = "${app.name} を削除しました"
+                                        },
+                                        onEdit = { editingApp = app },
+                                        modifier = Modifier.size(72.dp)
+                                    )
+                                }
+                            }
+                            Divider(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
                         }
                     }
 
