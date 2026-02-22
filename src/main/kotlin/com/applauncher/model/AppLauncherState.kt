@@ -19,9 +19,21 @@ enum class SortMode {
     MANUAL, NAME_ASC, NAME_DESC
 }
 
+@kotlinx.serialization.Serializable
+enum class ViewMode { LIST, GRID }
+
+@kotlinx.serialization.Serializable
+data class AppSettings(
+    val viewMode: ViewMode = ViewMode.LIST
+)
+
 class AppLauncherState {
     private val configFile = File(System.getProperty("user.home"), ".applauncher/apps.json")
+    private val settingsFile = File(System.getProperty("user.home"), ".applauncher/settings.json")
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
+
+    private val _viewMode = MutableStateFlow(ViewMode.LIST)
+    val viewMode: StateFlow<ViewMode> = _viewMode.asStateFlow()
 
     private val _apps = MutableStateFlow<List<AppEntry>>(emptyList())
     val apps: StateFlow<List<AppEntry>> = _apps.asStateFlow()
@@ -48,6 +60,7 @@ class AppLauncherState {
 
     init {
         loadApps()
+        loadSettings()
         updateDerived()
     }
 
@@ -93,6 +106,26 @@ class AppLauncherState {
             setFilePermissionsOwnerOnly(configFile)
         } catch (e: Exception) {
             AppLogger.error("Failed to save apps to ${configFile.path}", e)
+        }
+    }
+
+    private fun loadSettings() {
+        try {
+            if (settingsFile.exists()) {
+                val settings = json.decodeFromString<AppSettings>(settingsFile.readText())
+                _viewMode.value = settings.viewMode
+            }
+        } catch (e: Exception) {
+            AppLogger.warn("Failed to load settings from ${settingsFile.path}", e)
+        }
+    }
+
+    private fun saveSettings() {
+        try {
+            settingsFile.parentFile?.mkdirs()
+            settingsFile.writeText(json.encodeToString(AppSettings(viewMode = _viewMode.value)))
+        } catch (e: Exception) {
+            AppLogger.error("Failed to save settings to ${settingsFile.path}", e)
         }
     }
 
@@ -206,6 +239,14 @@ class AppLauncherState {
             SortMode.NAME_DESC -> SortMode.MANUAL
         }
         updateDerived()
+    }
+
+    fun toggleViewMode() {
+        _viewMode.value = when (_viewMode.value) {
+            ViewMode.LIST -> ViewMode.GRID
+            ViewMode.GRID -> ViewMode.LIST
+        }
+        saveSettings()
     }
 
     fun setSearchQuery(query: String) {
