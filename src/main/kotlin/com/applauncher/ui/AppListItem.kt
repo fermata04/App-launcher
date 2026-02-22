@@ -417,7 +417,7 @@ fun RecentAppItem(
     onLaunch: () -> Unit,
     onRemove: () -> Unit,
     onEdit: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier.size(72.dp)
 ) {
     var showContextMenu by remember { mutableStateOf(false) }
     var isHovered by remember { mutableStateOf(false) }
