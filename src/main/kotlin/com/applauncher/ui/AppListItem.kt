@@ -17,7 +17,11 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -315,6 +319,93 @@ fun AppIcon(path: String, modifier: Modifier = Modifier) {
                 contentDescription = null,
                 modifier = Modifier.size(24.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
+@Composable
+fun AppGridItem(
+    entry: AppEntry,
+    onLaunch: () -> Unit,
+    onRemove: () -> Unit,
+    onEdit: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var showContextMenu by remember { mutableStateOf(false) }
+    var isHovered by remember { mutableStateOf(false) }
+
+    val overlayAlpha by animateFloatAsState(
+        targetValue = if (isHovered) 0.6f else 0f,
+        animationSpec = tween(150)
+    )
+
+    Box(
+        modifier = modifier
+            .size(120.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .onPointerEvent(PointerEventType.Enter) { isHovered = true }
+            .onPointerEvent(PointerEventType.Exit) { isHovered = false }
+            .combinedClickable(
+                onClick = onLaunch,
+                onLongClick = { showContextMenu = true }
+            )
+    ) {
+        // App icon fills the cell
+        AppIcon(
+            path = entry.path,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        )
+
+        // Hover overlay with app name
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = overlayAlpha)),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            if (overlayAlpha > 0f) {
+                Text(
+                    text = entry.name,
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 6.dp)
+                )
+            }
+        }
+
+        // Context menu
+        DropdownMenu(
+            expanded = showContextMenu,
+            onDismissRequest = { showContextMenu = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("起動") },
+                onClick = { showContextMenu = false; onLaunch() },
+                leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null) }
+            )
+            DropdownMenuItem(
+                text = { Text("編集") },
+                onClick = { showContextMenu = false; onEdit() },
+                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+            )
+            Divider()
+            DropdownMenuItem(
+                text = { Text("削除", color = MaterialTheme.colorScheme.error) },
+                onClick = { showContextMenu = false; onRemove() },
+                leadingIcon = {
+                    Icon(Icons.Default.Delete, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error)
+                }
             )
         }
     }
