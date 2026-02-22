@@ -124,6 +124,7 @@ class AppLauncherState {
         try {
             settingsFile.parentFile?.mkdirs()
             settingsFile.writeText(json.encodeToString(AppSettings(viewMode = _viewMode.value)))
+            setFilePermissionsOwnerOnly(settingsFile)
         } catch (e: Exception) {
             AppLogger.error("Failed to save settings to ${settingsFile.path}", e)
         }

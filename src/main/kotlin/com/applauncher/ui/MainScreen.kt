@@ -90,6 +90,7 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
                     IconButton(onClick = {
                         state.cancelDrag()
                         dragOffsets = emptyMap()
+                        isDropTargetActive = false
                         state.toggleViewMode()
                     }) {
                         Icon(
