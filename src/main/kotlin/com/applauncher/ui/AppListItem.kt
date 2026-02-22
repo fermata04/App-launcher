@@ -368,19 +368,17 @@ fun AppGridItem(
                 .background(Color.Black.copy(alpha = overlayAlpha)),
             contentAlignment = Alignment.BottomCenter
         ) {
-            if (overlayAlpha > 0f) {
-                Text(
-                    text = entry.name,
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 6.dp)
-                )
-            }
+            Text(
+                text = entry.name,
+                color = Color.White.copy(alpha = overlayAlpha),
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 6.dp)
+            )
         }
 
         // Context menu
