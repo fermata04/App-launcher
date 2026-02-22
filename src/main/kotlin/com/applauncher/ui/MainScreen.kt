@@ -5,6 +5,9 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -21,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.applauncher.model.AppEntry
 import com.applauncher.model.AppLauncherState
 import com.applauncher.model.SortMode
+import com.applauncher.model.ViewMode
 import com.applauncher.util.ProcessLauncher
 import com.applauncher.util.UpdateChecker
 import com.applauncher.util.UpdateState
@@ -36,6 +40,7 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
     val selectedTag by state.selectedTag.collectAsState()
     val allTags by state.allTags.collectAsState()
     val searchQuery by state.searchQuery.collectAsState()
+    val viewMode by state.viewMode.collectAsState()
 
     var showSearchBar by remember { mutableStateOf(false) }
     val searchFocusRequester = remember { FocusRequester() }
@@ -81,6 +86,15 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 ),
                 actions = {
+                    // View mode toggle button
+                    IconButton(onClick = { state.toggleViewMode() }) {
+                        Icon(
+                            imageVector = if (viewMode == ViewMode.GRID) Icons.Default.ViewList
+                                          else Icons.Default.GridView,
+                            contentDescription = if (viewMode == ViewMode.GRID) "リスト表示" else "グリッド表示"
+                        )
+                    }
+
                     // Search toggle button
                     IconButton(onClick = {
                         showSearchBar = !showSearchBar
@@ -233,100 +247,131 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
                         }
                     }
 
-                    // ドロップエリア（上部）
-                    DropTargetArea(
-                        onActiveChange = { isDropTargetActive = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(if (isDropTargetActive) 80.dp else 0.dp)
-                            .animateContentSize()
-                    ) {
-                        if (isDropTargetActive) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(8.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(DropTarget.copy(alpha = 0.2f))
-                                    .border(2.dp, DropTarget, RoundedCornerShape(8.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    "ここにドロップしてアプリを追加",
-                                    color = DropTarget
-                                )
+                    // ドロップエリア（上部）- リスト表示時のみ
+                    if (viewMode == ViewMode.LIST) {
+                        DropTargetArea(
+                            onActiveChange = { isDropTargetActive = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(if (isDropTargetActive) 80.dp else 0.dp)
+                                .animateContentSize()
+                        ) {
+                            if (isDropTargetActive) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(8.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(DropTarget.copy(alpha = 0.2f))
+                                        .border(2.dp, DropTarget, RoundedCornerShape(8.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "ここにドロップしてアプリを追加",
+                                        color = DropTarget
+                                    )
+                                }
                             }
                         }
                     }
 
                     // アプリリスト
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(vertical = 16.dp)
-                    ) {
-                        itemsIndexed(
-                            items = displayApps,
-                            key = { _, app -> app.id }
-                        ) { index, app ->
-                            // IDベースでドラッグ状態を判定
-                            val isDragging = dragState?.draggedId == app.id
-                            val currentDragIndex = dragState?.currentIndex ?: -1
-                            val isDropTarget = !isDragging &&
-                                dragState != null &&
-                                index == currentDragIndex
+                    when (viewMode) {
+                        ViewMode.LIST -> LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(vertical = 16.dp)
+                        ) {
+                            itemsIndexed(
+                                items = displayApps,
+                                key = { _, app -> app.id }
+                            ) { index, app ->
+                                val isDragging = dragState?.draggedId == app.id
+                                val currentDragIndex = dragState?.currentIndex ?: -1
+                                val isDropTarget = !isDragging &&
+                                    dragState != null &&
+                                    index == currentDragIndex
 
-                            AppListItem(
-                                entry = app,
-                                isDragging = isDragging,
-                                isDropTarget = isDropTarget,
-                                dragOffset = dragOffsets[app.id] ?: 0f,
-                                isDragEnabled = isDragEnabled,
-                                onLaunch = {
-                                    if (ProcessLauncher.launch(app)) {
-                                        state.recordLaunch(app.id)
-                                        snackbarMessage = "${app.name} を起動しました"
-                                    } else {
-                                        snackbarMessage = "${app.name} の起動に失敗しました"
-                                    }
-                                },
-                                onRemove = {
-                                    state.removeApp(app.id)
-                                    snackbarMessage = "${app.name} を削除しました"
-                                },
-                                onEdit = { editingApp = app },
-                                onDragStart = {
-                                    // IDベースでドラッグ開始
-                                    state.startDrag(app.id)
-                                    dragOffsets = mapOf(app.id to 0f)
-                                },
-                                onDrag = { delta ->
-                                    val currentOffset = (dragOffsets[app.id] ?: 0f) + delta
-                                    dragOffsets = dragOffsets + (app.id to currentOffset)
-
-                                    // 現在の実際のインデックスを取得
-                                    val currentAppIndex = state.getAppIndex(app.id)
-                                    if (currentAppIndex >= 0) {
-                                        // 現在のドラッグ位置からターゲットインデックスを計算
-                                        val itemHeight = 72f // おおよそのアイテム高さ
-                                        val draggedItems = (currentOffset / itemHeight).toInt()
-                                        val newIndex = (currentAppIndex + draggedItems).coerceIn(0, displayApps.size - 1)
-                                        state.updateDragPosition(newIndex)
-                                    }
-                                },
-                                onDragEnd = {
-                                    state.endDrag()
-                                    dragOffsets = emptyMap()
-                                },
-                                modifier = Modifier.animateItemPlacement(
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                        stiffness = Spring.StiffnessMedium
+                                AppListItem(
+                                    entry = app,
+                                    isDragging = isDragging,
+                                    isDropTarget = isDropTarget,
+                                    dragOffset = dragOffsets[app.id] ?: 0f,
+                                    isDragEnabled = isDragEnabled,
+                                    onLaunch = {
+                                        if (ProcessLauncher.launch(app)) {
+                                            state.recordLaunch(app.id)
+                                            snackbarMessage = "${app.name} を起動しました"
+                                        } else {
+                                            snackbarMessage = "${app.name} の起動に失敗しました"
+                                        }
+                                    },
+                                    onRemove = {
+                                        state.removeApp(app.id)
+                                        snackbarMessage = "${app.name} を削除しました"
+                                    },
+                                    onEdit = { editingApp = app },
+                                    onDragStart = {
+                                        state.startDrag(app.id)
+                                        dragOffsets = mapOf(app.id to 0f)
+                                    },
+                                    onDrag = { delta ->
+                                        val currentOffset = (dragOffsets[app.id] ?: 0f) + delta
+                                        dragOffsets = dragOffsets + (app.id to currentOffset)
+                                        val currentAppIndex = state.getAppIndex(app.id)
+                                        if (currentAppIndex >= 0) {
+                                            val itemHeight = 72f
+                                            val draggedItems = (currentOffset / itemHeight).toInt()
+                                            val newIndex = (currentAppIndex + draggedItems).coerceIn(0, displayApps.size - 1)
+                                            state.updateDragPosition(newIndex)
+                                        }
+                                    },
+                                    onDragEnd = {
+                                        state.endDrag()
+                                        dragOffsets = emptyMap()
+                                    },
+                                    modifier = Modifier.animateItemPlacement(
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                            stiffness = Spring.StiffnessMedium
+                                        )
                                     )
                                 )
-                            )
+                            }
+                        }
+
+                        ViewMode.GRID -> LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = 120.dp),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(vertical = 16.dp)
+                        ) {
+                            items(
+                                items = displayApps,
+                                key = { app -> app.id }
+                            ) { app ->
+                                AppGridItem(
+                                    entry = app,
+                                    onLaunch = {
+                                        if (ProcessLauncher.launch(app)) {
+                                            state.recordLaunch(app.id)
+                                            snackbarMessage = "${app.name} を起動しました"
+                                        } else {
+                                            snackbarMessage = "${app.name} の起動に失敗しました"
+                                        }
+                                    },
+                                    onRemove = {
+                                        state.removeApp(app.id)
+                                        snackbarMessage = "${app.name} を削除しました"
+                                    },
+                                    onEdit = { editingApp = app }
+                                )
+                            }
                         }
                     }
                 }
