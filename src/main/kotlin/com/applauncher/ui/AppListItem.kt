@@ -343,7 +343,8 @@ fun AppGridItem(
 
     Box(
         modifier = modifier
-            .size(120.dp)
+            .fillMaxWidth()
+            .aspectRatio(1f)
             .clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .onPointerEvent(PointerEventType.Enter) { isHovered = true }

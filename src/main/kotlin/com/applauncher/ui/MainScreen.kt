@@ -87,7 +87,11 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
                 ),
                 actions = {
                     // View mode toggle button
-                    IconButton(onClick = { state.toggleViewMode() }) {
+                    IconButton(onClick = {
+                        state.cancelDrag()
+                        dragOffsets = emptyMap()
+                        state.toggleViewMode()
+                    }) {
                         Icon(
                             imageVector = if (viewMode == ViewMode.GRID) Icons.Default.ViewList
                                           else Icons.Default.GridView,
