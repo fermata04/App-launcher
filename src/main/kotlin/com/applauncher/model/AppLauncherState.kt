@@ -58,6 +58,10 @@ class AppLauncherState {
     private val _displayApps = MutableStateFlow<List<AppEntry>>(emptyList())
     val displayApps: StateFlow<List<AppEntry>> = _displayApps.asStateFlow()
 
+    // Derived: top 5 most recently launched apps (unfiltered)
+    private val _recentApps = MutableStateFlow<List<AppEntry>>(emptyList())
+    val recentApps: StateFlow<List<AppEntry>> = _recentApps.asStateFlow()
+
     init {
         loadApps()
         loadSettings()
@@ -86,6 +90,10 @@ class AppLauncherState {
             SortMode.NAME_ASC -> filtered.sortedBy { it.name.lowercase() }
             SortMode.NAME_DESC -> filtered.sortedByDescending { it.name.lowercase() }
         }
+        _recentApps.value = _apps.value
+            .filter { it.lastLaunchedAt != null }
+            .sortedByDescending { it.lastLaunchedAt }
+            .take(5)
     }
 
     private fun loadApps() {
@@ -144,8 +152,13 @@ class AppLauncherState {
                     .setPermissions(
                         AclEntryPermission.READ_DATA,
                         AclEntryPermission.WRITE_DATA,
+                        AclEntryPermission.APPEND_DATA,
+                        AclEntryPermission.READ_NAMED_ATTRS,
+                        AclEntryPermission.WRITE_NAMED_ATTRS,
                         AclEntryPermission.READ_ATTRIBUTES,
                         AclEntryPermission.WRITE_ATTRIBUTES,
+                        AclEntryPermission.READ_ACL,
+                        AclEntryPermission.SYNCHRONIZE,
                         AclEntryPermission.DELETE
                     )
                     .build()

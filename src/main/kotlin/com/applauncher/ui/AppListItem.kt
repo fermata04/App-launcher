@@ -409,3 +409,84 @@ fun AppGridItem(
         }
     }
 }
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
+@Composable
+fun RecentAppItem(
+    entry: AppEntry,
+    onLaunch: () -> Unit,
+    onRemove: () -> Unit,
+    onEdit: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var showContextMenu by remember { mutableStateOf(false) }
+    var isHovered by remember { mutableStateOf(false) }
+
+    val overlayAlpha by animateFloatAsState(
+        targetValue = if (isHovered) 0.6f else 0f,
+        animationSpec = tween(150)
+    )
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .onPointerEvent(PointerEventType.Enter) { isHovered = true }
+            .onPointerEvent(PointerEventType.Exit) { isHovered = false }
+            .combinedClickable(
+                onClick = onLaunch,
+                onLongClick = { showContextMenu = true }
+            )
+    ) {
+        AppIcon(
+            path = entry.path,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp)
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = overlayAlpha)),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            Text(
+                text = entry.name,
+                color = Color.White.copy(alpha = overlayAlpha),
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 2.dp, vertical = 4.dp)
+            )
+        }
+
+        DropdownMenu(
+            expanded = showContextMenu,
+            onDismissRequest = { showContextMenu = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("起動") },
+                onClick = { showContextMenu = false; onLaunch() },
+                leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null) }
+            )
+            DropdownMenuItem(
+                text = { Text("編集") },
+                onClick = { showContextMenu = false; onEdit() },
+                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+            )
+            Divider()
+            DropdownMenuItem(
+                text = { Text("削除", color = MaterialTheme.colorScheme.error) },
+                onClick = { showContextMenu = false; onRemove() },
+                leadingIcon = {
+                    Icon(Icons.Default.Delete, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error)
+                }
+            )
+        }
+    }
+}
