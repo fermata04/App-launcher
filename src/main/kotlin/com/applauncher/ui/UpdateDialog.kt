@@ -116,11 +116,11 @@ fun UpdateDialog(
 
                     is UpdateState.ReadyToInstall -> {
                         Text(
-                            text = "ダウンロードが完了しました。インストーラーを起動してアプリを更新します。",
+                            text = "ダウンロードが完了しました。バックグラウンドでサイレントインストールを実行します。",
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Text(
-                            text = "インストーラー起動後、アプリは自動的に終了します。",
+                            text = "インストール完了後、アプリが自動的に再起動します。",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
@@ -160,7 +160,7 @@ fun UpdateDialog(
                 }
                 is UpdateState.ReadyToInstall -> {
                     Button(onClick = onInstallAndClose) {
-                        Text("インストールして終了")
+                        Text("インストール")
                     }
                 }
                 is UpdateState.Downloading -> {}

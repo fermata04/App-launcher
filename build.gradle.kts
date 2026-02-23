@@ -29,6 +29,8 @@ dependencies {
 
     // OkHttp for HTTP requests (update checker)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    testImplementation(kotlin("test"))
 }
 
 val generateVersionProperties by tasks.registering {

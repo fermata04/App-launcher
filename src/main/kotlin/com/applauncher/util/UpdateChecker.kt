@@ -226,16 +226,59 @@ object UpdateChecker {
         }
     }
 
-    fun launchInstaller(installerFile: File): Boolean {
+    /**
+     * Starts a silent MSI installation via a PowerShell bootstrap script, then signals
+     * success so the caller can exit the application.
+     *
+     * Returns `true` if the PowerShell process was successfully spawned — NOT that the
+     * installation completed. The caller must exit the application immediately after this
+     * returns `true`, so file locks are released before the installer runs.
+     *
+     * Returns `false` if the current exe path cannot be determined or if launching
+     * PowerShell fails.
+     */
+    fun silentInstallAndRestart(installerFile: File): Boolean {
+        val exePath = ProcessHandle.current().info().command().orElse(null)
+            ?: run {
+                AppLogger.warn("Could not determine current exe path for restart")
+                return false
+            }
+
+        val scriptContent = buildUpdateScript(installerFile.absolutePath, exePath)
+        val scriptFile = File(installerFile.parentFile, "update.ps1")
+
         return try {
-            ProcessBuilder("cmd", "/c", "start", "", installerFile.absolutePath)
+            scriptFile.writeText(scriptContent)
+            ProcessBuilder(
+                "powershell.exe",
+                "-ExecutionPolicy", "Bypass",
+                "-WindowStyle", "Hidden",
+                "-NonInteractive",
+                "-File", scriptFile.absolutePath
+            )
                 .directory(installerFile.parentFile)
                 .start()
+
             true
         } catch (e: Exception) {
-            AppLogger.error("Failed to launch installer: ${installerFile.absolutePath}", e)
+            AppLogger.error("Failed to start silent update", e)
+            runCatching { scriptFile.delete() }
             false
         }
+    }
+
+    internal fun buildUpdateScript(installerPath: String, exePath: String): String {
+        // Escape backticks, dollar signs, and double-quotes for PowerShell string interpolation
+        val safeInstaller = installerPath.replace("`", "``").replace("$", "`$").replace("\"", "`\"")
+        val safeExe = exePath.replace("`", "``").replace("$", "`$").replace("\"", "`\"")
+        return """
+Start-Sleep -Seconds 2
+${'$'}p = Start-Process msiexec -ArgumentList "/qn /i `"$safeInstaller`" /norestart" -Wait -PassThru
+if (${'$'}p.ExitCode -eq 0) {
+    Start-Process -FilePath "$safeExe"
+}
+Remove-Item "${'$'}MyInvocation.MyCommand.Path" -Force -ErrorAction SilentlyContinue
+        """.trimIndent()
     }
 
     fun reset() {
