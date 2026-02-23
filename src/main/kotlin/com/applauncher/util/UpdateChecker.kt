@@ -1,4 +1,4 @@
-package com.applauncher.util
+﻿package com.applauncher.util
 
 import com.applauncher.model.GitHubAsset
 import com.applauncher.model.GitHubRelease
@@ -277,7 +277,7 @@ ${'$'}p = Start-Process msiexec -ArgumentList "/qn /i `"$safeInstaller`" /norest
 if (${'$'}p.ExitCode -eq 0) {
     Start-Process -FilePath "`"$safeExe`""
 }
-Remove-Item ${'$'}MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
+Remove-Item "${'$'}MyInvocation.MyCommand.Path" -Force -ErrorAction SilentlyContinue
         """.trimIndent()
     }
 
