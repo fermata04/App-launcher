@@ -246,9 +246,9 @@ object UpdateChecker {
 
         val scriptContent = buildUpdateScript(installerFile.absolutePath, exePath)
         val scriptFile = File(installerFile.parentFile, "update.ps1")
-        scriptFile.writeText(scriptContent)
 
         return try {
+            scriptFile.writeText(scriptContent)
             ProcessBuilder(
                 "powershell.exe",
                 "-ExecutionPolicy", "Bypass",
@@ -275,7 +275,7 @@ object UpdateChecker {
 Start-Sleep -Seconds 2
 ${'$'}p = Start-Process msiexec -ArgumentList "/qn /i `"$safeInstaller`" /norestart" -Wait -PassThru
 if (${'$'}p.ExitCode -eq 0) {
-    Start-Process -FilePath "$safeExe"
+    Start-Process -FilePath "`"$safeExe`""
 }
 Remove-Item ${'$'}MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
         """.trimIndent()
