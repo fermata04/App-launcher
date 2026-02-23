@@ -226,16 +226,47 @@ object UpdateChecker {
         }
     }
 
-    fun launchInstaller(installerFile: File): Boolean {
+    fun silentInstallAndRestart(installerFile: File): Boolean {
         return try {
-            ProcessBuilder("cmd", "/c", "start", "", installerFile.absolutePath)
+            val exePath = ProcessHandle.current().info().command().orElse(null)
+                ?: run {
+                    AppLogger.warn("Could not determine current exe path for restart")
+                    return false
+                }
+
+            val scriptContent = buildUpdateScript(installerFile.absolutePath, exePath)
+            val scriptFile = File(installerFile.parentFile, "update.ps1")
+            scriptFile.writeText(scriptContent)
+
+            ProcessBuilder(
+                "powershell.exe",
+                "-ExecutionPolicy", "Bypass",
+                "-WindowStyle", "Hidden",
+                "-NonInteractive",
+                "-File", scriptFile.absolutePath
+            )
                 .directory(installerFile.parentFile)
                 .start()
+
             true
         } catch (e: Exception) {
-            AppLogger.error("Failed to launch installer: ${installerFile.absolutePath}", e)
+            AppLogger.error("Failed to start silent update", e)
             false
         }
+    }
+
+    internal fun buildUpdateScript(installerPath: String, exePath: String): String {
+        // Escape backticks and double-quotes for PowerShell string interpolation
+        val safeInstaller = installerPath.replace("`", "``")
+        val safeExe = exePath.replace("`", "``")
+        return """
+Start-Sleep -Seconds 2
+${'$'}p = Start-Process msiexec -ArgumentList "/qn /i `"$safeInstaller`" /norestart" -Wait -PassThru
+if (${'$'}p.ExitCode -eq 0) {
+    Start-Process -FilePath "$safeExe"
+}
+Remove-Item ${'$'}MyInvocation.MyCommand.Path -Force -ErrorAction SilentlyContinue
+        """.trimIndent()
     }
 
     fun reset() {

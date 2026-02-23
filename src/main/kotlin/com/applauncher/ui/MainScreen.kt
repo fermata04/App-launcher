@@ -478,7 +478,7 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
             onInstallAndClose = {
                 val current = updateState
                 if (current is UpdateState.ReadyToInstall) {
-                    if (UpdateChecker.launchInstaller(current.installerFile)) {
+                    if (UpdateChecker.silentInstallAndRestart(current.installerFile)) {
                         onExitApplication()
                     } else {
                         snackbarMessage = "インストーラーの起動に失敗しました"
