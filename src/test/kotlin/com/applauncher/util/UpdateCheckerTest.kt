@@ -11,6 +11,7 @@ class UpdateCheckerTest {
             installerPath = "C:\\Temp\\AppLauncher-1.3.0.msi",
             exePath = "C:\\Users\\test\\AppData\\Local\\AppLauncher\\AppLauncher.exe"
         )
+        assertContains(script, "msiexec")
         assertContains(script, "/qn /i")
         assertContains(script, "C:\\Temp\\AppLauncher-1.3.0.msi")
         assertContains(script, "/norestart")
