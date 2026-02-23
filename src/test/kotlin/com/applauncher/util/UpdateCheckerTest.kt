@@ -36,4 +36,14 @@ class UpdateCheckerTest {
         assertContains(script, "Start-Sleep")
         assertContains(script, "Remove-Item")
     }
+
+    @Test
+    fun `buildUpdateScript escapes dollar sign in paths`() {
+        val script = UpdateChecker.buildUpdateScript(
+            installerPath = "C:\\Users\\\$Admin\\installer.msi",
+            exePath = "C:\\Users\\\$Admin\\AppLauncher.exe"
+        )
+        // The $ must be escaped as `$ in the PowerShell script
+        assertContains(script, "`\$Admin")
+    }
 }

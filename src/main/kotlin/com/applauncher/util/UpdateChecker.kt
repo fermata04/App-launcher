@@ -226,18 +226,29 @@ object UpdateChecker {
         }
     }
 
+    /**
+     * Starts a silent MSI installation via a PowerShell bootstrap script, then signals
+     * success so the caller can exit the application.
+     *
+     * Returns `true` if the PowerShell process was successfully spawned — NOT that the
+     * installation completed. The caller must exit the application immediately after this
+     * returns `true`, so file locks are released before the installer runs.
+     *
+     * Returns `false` if the current exe path cannot be determined or if launching
+     * PowerShell fails.
+     */
     fun silentInstallAndRestart(installerFile: File): Boolean {
+        val exePath = ProcessHandle.current().info().command().orElse(null)
+            ?: run {
+                AppLogger.warn("Could not determine current exe path for restart")
+                return false
+            }
+
+        val scriptContent = buildUpdateScript(installerFile.absolutePath, exePath)
+        val scriptFile = File(installerFile.parentFile, "update.ps1")
+        scriptFile.writeText(scriptContent)
+
         return try {
-            val exePath = ProcessHandle.current().info().command().orElse(null)
-                ?: run {
-                    AppLogger.warn("Could not determine current exe path for restart")
-                    return false
-                }
-
-            val scriptContent = buildUpdateScript(installerFile.absolutePath, exePath)
-            val scriptFile = File(installerFile.parentFile, "update.ps1")
-            scriptFile.writeText(scriptContent)
-
             ProcessBuilder(
                 "powershell.exe",
                 "-ExecutionPolicy", "Bypass",
@@ -251,14 +262,15 @@ object UpdateChecker {
             true
         } catch (e: Exception) {
             AppLogger.error("Failed to start silent update", e)
+            runCatching { scriptFile.delete() }
             false
         }
     }
 
     internal fun buildUpdateScript(installerPath: String, exePath: String): String {
-        // Escape backticks and double-quotes for PowerShell string interpolation
-        val safeInstaller = installerPath.replace("`", "``")
-        val safeExe = exePath.replace("`", "``")
+        // Escape backticks, dollar signs, and double-quotes for PowerShell string interpolation
+        val safeInstaller = installerPath.replace("`", "``").replace("$", "`$").replace("\"", "`\"")
+        val safeExe = exePath.replace("`", "``").replace("$", "`$").replace("\"", "`\"")
         return """
 Start-Sleep -Seconds 2
 ${'$'}p = Start-Process msiexec -ArgumentList "/qn /i `"$safeInstaller`" /norestart" -Wait -PassThru
