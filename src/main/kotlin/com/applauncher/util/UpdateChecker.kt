@@ -1,4 +1,4 @@
-﻿package com.applauncher.util
+package com.applauncher.util
 
 import com.applauncher.model.GitHubAsset
 import com.applauncher.model.GitHubRelease
@@ -275,7 +275,7 @@ object UpdateChecker {
 Start-Sleep -Seconds 2
 ${'$'}p = Start-Process msiexec -ArgumentList "/qn /i `"$safeInstaller`" /norestart" -Wait -PassThru
 if (${'$'}p.ExitCode -eq 0) {
-    Start-Process -FilePath "`"$safeExe`""
+    Start-Process -FilePath "$safeExe"
 }
 Remove-Item "${'$'}MyInvocation.MyCommand.Path" -Force -ErrorAction SilentlyContinue
         """.trimIndent()

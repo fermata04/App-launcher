@@ -46,4 +46,14 @@ class UpdateCheckerTest {
         // The $ must be escaped as `$ in the PowerShell script
         assertContains(script, "`\$Admin")
     }
+
+    @Test
+    fun `buildUpdateScript handles exe path with spaces`() {
+        val script = UpdateChecker.buildUpdateScript(
+            installerPath = "C:\\Temp\\installer.msi",
+            exePath = "C:\\Program Files\\AppLauncher\\AppLauncher.exe"
+        )
+        assertContains(script, "C:\\Program Files\\AppLauncher\\AppLauncher.exe")
+        assertContains(script, "Start-Process -FilePath")
+    }
 }
