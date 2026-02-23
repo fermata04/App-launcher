@@ -481,7 +481,7 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
                     if (UpdateChecker.silentInstallAndRestart(current.installerFile)) {
                         onExitApplication()
                     } else {
-                        snackbarMessage = "インストーラーの起動に失敗しました"
+                        snackbarMessage = "アップデートの起動に失敗しました"
                     }
                 }
             }
