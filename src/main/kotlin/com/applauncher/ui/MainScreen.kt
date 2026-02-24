@@ -291,7 +291,7 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
                                     )
                                 }
                             }
-                            Divider(
+                            HorizontalDivider(
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                             )
                         }
@@ -382,8 +382,10 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
                                         state.endDrag()
                                         dragOffsets = emptyMap()
                                     },
-                                    modifier = Modifier.animateItemPlacement(
-                                        animationSpec = spring(
+                                    modifier = Modifier.animateItem(
+                                        fadeInSpec = null,
+                                        fadeOutSpec = null,
+                                        placementSpec = spring(
                                             dampingRatio = Spring.DampingRatioMediumBouncy,
                                             stiffness = Spring.StiffnessMedium
                                         )
@@ -471,7 +473,7 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
                 val current = updateState
                 if (current is UpdateState.Available) {
                     coroutineScope.launch {
-                        UpdateChecker.downloadUpdate(current.asset)
+                        UpdateChecker.downloadUpdate(current.asset, current.release)
                     }
                 }
             },

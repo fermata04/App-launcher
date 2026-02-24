@@ -109,7 +109,7 @@ object UpdateChecker {
         }
     }
 
-    suspend fun downloadUpdate(asset: GitHubAsset): File? = withContext(Dispatchers.IO) {
+    suspend fun downloadUpdate(asset: GitHubAsset, release: GitHubRelease): File? = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder()
                 .url(asset.browserDownloadUrl)
@@ -155,8 +155,13 @@ object UpdateChecker {
                     }
                 }
 
-                // SHA-256 ハッシュ検証
-                val expectedHash = fetchExpectedHash(asset.name)
+                // SHA-256 ハッシュ検証（checkForUpdate() で取得済みの release を再利用）
+                val hashAsset = release.assets.firstOrNull {
+                    it.name.equals("SHA256SUMS.txt", ignoreCase = true)
+                }
+                val expectedHash = if (hashAsset != null) {
+                    fetchHashContent(hashAsset.browserDownloadUrl, asset.name)
+                } else null
                 if (expectedHash != null) {
                     if (!verifyFileHash(outputFile, expectedHash)) {
                         outputFile.delete()
@@ -189,33 +194,15 @@ object UpdateChecker {
         return actualHash.equals(expectedHash, ignoreCase = true)
     }
 
-    private fun fetchExpectedHash(assetName: String): String? {
+    private fun fetchHashContent(hashUrl: String, assetName: String): String? {
         try {
-            val request = Request.Builder()
-                .url(RELEASES_URL)
-                .header("Accept", "application/vnd.github.v3+json")
-                .get()
-                .build()
-            val response = client.newCall(request).execute()
-            val releaseBody = response.use { resp ->
+            val request = Request.Builder().url(hashUrl).build()
+            val content = client.newCall(request).execute().use { resp ->
                 if (!resp.isSuccessful) return null
                 resp.body?.string() ?: return null
             }
-            val release = json.decodeFromString<GitHubRelease>(releaseBody)
-            val hashAsset = release.assets.firstOrNull {
-                it.name.equals("SHA256SUMS.txt", ignoreCase = true)
-            } ?: return null
-
-            val hashRequest = Request.Builder()
-                .url(hashAsset.browserDownloadUrl)
-                .build()
-            val hashResponse = client.newCall(hashRequest).execute()
-            val hashContent = hashResponse.use { hashResp ->
-                if (!hashResp.isSuccessful) return null
-                hashResp.body?.string() ?: return null
-            }
             // Format: "<hash>  <filename>" or "<hash> <filename>"
-            return hashContent.lines()
+            return content.lines()
                 .map { it.trim() }
                 .firstOrNull { line -> line.endsWith(assetName, ignoreCase = true) }
                 ?.split("\\s+".toRegex())

@@ -274,7 +274,7 @@ fun AppListItem(
                     Icon(Icons.Default.Edit, contentDescription = null)
                 }
             )
-            Divider()
+            HorizontalDivider()
             DropdownMenuItem(
                 text = { Text("削除", color = MaterialTheme.colorScheme.error) },
                 onClick = {
@@ -397,7 +397,7 @@ fun AppGridItem(
                 onClick = { showContextMenu = false; onEdit() },
                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
             )
-            Divider()
+            HorizontalDivider()
             DropdownMenuItem(
                 text = { Text("削除", color = MaterialTheme.colorScheme.error) },
                 onClick = { showContextMenu = false; onRemove() },
@@ -478,7 +478,7 @@ fun RecentAppItem(
                 onClick = { showContextMenu = false; onEdit() },
                 leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
             )
-            Divider()
+            HorizontalDivider()
             DropdownMenuItem(
                 text = { Text("削除", color = MaterialTheme.colorScheme.error) },
                 onClick = { showContextMenu = false; onRemove() },

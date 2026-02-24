@@ -73,7 +73,7 @@ fun UpdateDialog(
                         )
 
                         if (updateState.release.body.isNotBlank()) {
-                            Divider()
+                            HorizontalDivider()
                             Text(
                                 text = "変更内容:",
                                 style = MaterialTheme.typography.labelLarge
@@ -97,7 +97,7 @@ fun UpdateDialog(
                     is UpdateState.Downloading -> {
                         if (updateState.progress >= 0f) {
                             LinearProgressIndicator(
-                                progress = updateState.progress,
+                                progress = { updateState.progress },
                                 modifier = Modifier.fillMaxWidth()
                             )
                             Text(
