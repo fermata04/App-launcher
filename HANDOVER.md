@@ -1,26 +1,36 @@
 # HANDOVER - セッション引き継ぎドキュメント
 
-**日付:** 2026-02-28（セッション9）
-**ブランチ:** `main`（HEAD: `590892a` — push 未実施）
+**日付:** 2026-02-28（セッション10）
+**ブランチ:** `main`（HEAD: `f6b65ab`）
 **リポジトリ:** https://github.com/fermata04/App-launcher.git
 
 ---
 
 ## 1. セッション概要
 
-「登録したアプリを管理者権限で実行する」機能の設計と実装計画を作成した。
-`superpowers:brainstorming` → `superpowers:writing-plans` スキルの流れで設計ドキュメントと実装計画ドキュメントを `docs/plans/` に保存・コミット。コードの変更は次セッションで行う（別セッションで `/executing-plans` スキルにて実行予定）。
+run-as-admin 機能の実装（`docs/plans/2026-02-28-run-as-admin.md`）を `executing-plans` スキルで実行し v1.5.0 をリリース。その後、以下の不具合を順次修正してリリースした：
+
+1. **v1.5.0 リリース**: run-as-admin 機能の実装・PR#7 マージ・リリース
+2. **v1.5.1 リリース**: D&D 登録機能の修復（Compose 1.7.1 互換）＋ドロップゾーンアニメーションの改善
+3. **v1.5.2 リリース**: run-as-admin でシステムドライブ以外のアプリが起動しないバグ修正
 
 ---
 
 ## 2. 完了した作業
 
-| ファイル | 変更内容 |
-|---------|---------|
-| `docs/plans/2026-02-28-run-as-admin-design.md` | 設計ドキュメント新規作成（コミット: `57f3c7e`） |
-| `docs/plans/2026-02-28-run-as-admin.md` | 実装計画ドキュメント新規作成（コミット: `590892a`） |
+| ファイル | 変更内容 | コミット |
+|---------|---------|---------|
+| `src/main/kotlin/com/applauncher/model/AppEntry.kt` | `runAsAdmin: Boolean = false` フィールド追加 | `52af768` |
+| `src/test/kotlin/com/applauncher/model/AppEntryTest.kt` | 新規作成（3件：デフォルト値・シリアライズ・後方互換） | `52af768` |
+| `src/main/kotlin/com/applauncher/util/ProcessLauncher.kt` | `buildAdminCommand()` 追加、`launch()` に admin 分岐、後で `-WorkingDirectory` 追加 | `3b99f02`, `b422991` |
+| `src/test/kotlin/com/applauncher/util/ProcessLauncherTest.kt` | 新規作成→7件に拡張（admin コマンド構築・引数・WorkingDirectory） | `3b99f02`, `b422991` |
+| `src/main/kotlin/com/applauncher/ui/EditAppDialog.kt` | `runAsAdmin` Switch トグル UI 追加 | `d8a38d1` |
+| `src/main/kotlin/com/applauncher/ui/DropTargetArea.kt` | `findRenderingLayer()` 追加、`setupWindowDropTarget()` を ComposeWindowPanel に適用 | `7b8687a` |
+| `src/main/kotlin/com/applauncher/ui/MainScreen.kt` | ドロップゾーンを `AnimatedVisibility` + `spring(DampingRatioMediumBouncy)` に変更 | `7b8687a` |
+| `build.gradle.kts` | バージョン 1.4.0 → 1.5.0 → 1.5.1 → 1.5.2 | 各バンプコミット |
+| `.gitignore` | `.worktrees/` を追加 | `1905826` |
 
-**コード変更: なし**（設計・計画フェーズのみ）
+**テスト合計:** 15件 PASS（`AppEntryTest`: 3, `ProcessLauncherTest`: 7, `UpdateCheckerTest`: 5）
 
 ---
 
@@ -28,16 +38,72 @@
 
 | 判断 | 理由 |
 |------|------|
-| `AppEntry` に `runAsAdmin: Boolean = false` を追加 | デフォルト `false` で既存 JSON データとの後方互換性を維持 |
-| 管理者起動の実装: PowerShell `Start-Process -Verb RunAs` | 追加ライブラリ不要・UAC ダイアログは Windows 標準に委ねる |
-| UI: `EditAppDialog` にトグルのみ追加（コンテキストメニューは変更なし） | 「常に管理者権限で起動」の設定のみ。オンデマンド起動は不要とユーザーが判断 |
-| リスト/グリッド画面に視覚インジケーター（盾アイコン等）は表示しない | シンプルな実装を優先。設定ダイアログで確認できれば十分とユーザーが判断 |
+| リリース用ビルドに `packageMsi`（ProGuard なし）を使用 | `packageReleaseMsi` は ProGuard 7.2.2 が Java 21 クラス（class version 65）を非対応のためビルド失敗。Compose 1.7.1 が Java 21 依存を引き込む限り `packageMsi` を使い続ける |
+| `findRenderingLayer()` で dropTarget 非 null のコンポーネントを探す | Compose 1.6+ は ComposeWindowPanel に独自 DropTarget を登録しており、ウィンドウ直接への登録は AWT DnD イベントが ComposeWindowPanel に横取りされる。同コンポーネントへ上書き登録することで解決 |
+| ドロップゾーンを `height()+animateContentSize()` → `AnimatedVisibility` に変更 | `animateContentSize()` はデフォルト spring でアプリ並べ替えのアニメーションと統一感がなかった。`AnimatedVisibility` なら `enter`/`exit` に個別 spring を指定でき、`fadeIn`/`fadeOut` を同時に付与しやすい |
+| `-WorkingDirectory` のフォールバックを `File(entry.path).parent` に | 作業ディレクトリを指定しないと PowerShell elevated プロセスが Java の起動ディレクトリ（通常 C:\）を引き継ぎ、別ドライブのアプリが相対パスで DLL/config を解決できなくなる |
 
 ---
 
 ## 4. 試行錯誤したポイント
 
-特になし（コーディングなし）。
+### v1.5.0: リリースアセットが未添付でエラー
+
+- `gh release create` を `--generate-notes` のみで実行し MSI を添付し忘れた
+- アプリ内アップデーターが「インストーラーが見つかりません」と表示
+- 修正: `gh release upload v1.5.0 AppLauncher-1.5.0.msi SHA256SUMS.txt` で後から添付
+
+### v1.5.0: `packageReleaseMsi` が ProGuard でクラッシュ
+
+```
+ERROR: Unsupported class version number [65.0] (maximum 62.0, Java 18)
+```
+
+- `packageReleaseMsi` は ProGuard でコード最小化を行うが、ProGuard 7.2.2 は Java 21 バイトコード非対応
+- Compose 1.7.1 が依存する Kotlin/Compose ライブラリが Java 21 でコンパイルされている
+- 修正: `./gradlew packageMsi`（ProGuard なし）を使用。パフォーマンス差は軽微
+
+### v1.5.1 D&D 修正・第1回試行: `findRenderingLayer` が誤コンポーネントを返す
+
+当初の `findRenderingLayer` は単一子ノードを再帰的にたどる実装：
+
+```kotlin
+// NG: JRootPane で止まる（子が2個あるので再帰しない）
+private fun findRenderingLayer(component: java.awt.Component): java.awt.Component {
+    if (component is java.awt.Container && component.componentCount == 1) {
+        return findRenderingLayer(component.getComponent(0))
+    }
+    return component
+}
+```
+
+- ログで `renderingLayer=javax.swing.JRootPane` と判明（ComposeWindowPanel ではない）
+- 修正: コンポーネントツリーを DFS で走査し `dropTarget != null` の最初のコンポーネントを返す
+
+```kotlin
+// OK: dropTarget を持つコンポーネントを DFS で探す
+internal fun findRenderingLayer(container: java.awt.Container): java.awt.Component {
+    fun findWithDropTarget(component: java.awt.Component): java.awt.Component? {
+        if (component.dropTarget != null) return component
+        if (component is java.awt.Container) {
+            for (child in component.components) {
+                val found = findWithDropTarget(child)
+                if (found != null) return found
+            }
+        }
+        return null
+    }
+    return findWithDropTarget(container) ?: container
+}
+```
+
+実際のコンポーネント階層:
+```
+ComposeWindow
+  └─ JRootPane (dropTarget=null)
+       └─ JLayeredPane (dropTarget=null)
+            └─ ComposeWindowPanel (dropTarget=DropTarget)  ← ここを探す
+```
 
 ---
 
@@ -45,77 +111,49 @@
 
 | 手法 | 却下理由 |
 |------|---------|
-| JNA + `ShellExecuteEx("runas")` | 追加依存（`jna-platform`）が必要。PowerShell で代替可能なため不要 |
-| コンテキストメニューに「管理者として起動」を追加（オンデマンド） | ユーザーが「アプリ設定（常に管理者権限）」の方を希望したため採用せず |
-| リスト画面に管理者アイコン表示 | ユーザーが不要と判断 |
+| `animateContentSize()` をカスタム spring に変更してアニメーション統一 | `animateContentSize()` はフェードを同時制御できない。`AnimatedVisibility` の方が `enter`/`exit` の組み合わせが柔軟 |
+| `packageReleaseMsi` + ProGuard バージョンアップ | Compose 付属 ProGuard のバージョンは Compose ライブラリ側で固定されており、個別上書きは複雑。`packageMsi` で十分 |
+| DropTarget を `ComposeWindow` に直接登録（従来手法） | Compose 1.6 以降は ComposeWindowPanel が先にイベントを奪うため機能しない |
 
 ---
 
 ## 6. 学んだ教訓
 
-特になし（コーディングなし）。
+- **`packageReleaseMsi` は Java 21 環境で使えない**: Compose 1.7.1 依存 + ProGuard 7.2.2 の組み合わせ。常に `packageMsi` でリリースビルドを行う
+- **Compose 1.6+ の DnD 登録先は ComposeWindowPanel**: `dropTarget != null` のコンポーネントを DFS で探して DropTarget を上書き登録する
+- **PowerShell `Start-Process` は `-WorkingDirectory` がないとデフォルトで Java 起動ディレクトリを使う**: アプリが別ドライブにある場合は相対パス解決が壊れる。`File(path).parent` をフォールバックとして必ず渡す
+- **リリース手順**: `./gradlew packageMsi` → `certutil -hashfile ... SHA256` → `git tag vX.Y.Z` → `git push origin main vX.Y.Z` → `gh release create vX.Y.Z build/compose/binaries/main/msi/AppLauncher-X.Y.Z.msi SHA256SUMS.txt --title "..." --notes "..."`
+- **`AnimatedVisibility` の enter/exit に spring を指定**: `enter = expandVertically(animationSpec = spring(DampingRatioMediumBouncy, StiffnessMedium)) + fadeIn(...)` で高さとフェードを同時にアニメーション
 
 ---
 
 ## 7. 残タスク / TODO
 
-### 最優先（次セッションで実行）
-
-`docs/plans/2026-02-28-run-as-admin.md` を `/executing-plans` スキルで実行する:
-
-- [ ] **Task 1:** `AppEntry` に `runAsAdmin: Boolean = false` を追加 + `AppEntryTest` 3件
-- [ ] **Task 2:** `ProcessLauncher` に `buildAdminCommand()` + 管理者起動分岐 + `ProcessLauncherTest` 4件
-- [ ] **Task 3:** `EditAppDialog` に Switch トグル追加（`管理者として起動`）
-- [ ] **Task 4:** 手動スモークテスト（UAC ダイアログ確認）
-- [ ] **Task 5:** バージョン `1.5.0` にバンプ
-
-### その後
-
-- ライトテーマ対応（`Main.kt` のハードコード解消）— 低優先度
-- セッション8 のスモークテスト（`animateItem` アニメーション、プログレスバー等）— 未実施であれば
+- [ ] ライトテーマ対応（`Main.kt` のハードコードされたダークテーマ解消）— 低優先度
 
 ---
 
 ## 8. 次のセッションへの申し送り
 
-- **ブランチ:** `main`（HEAD: `590892a`、origin への push 未実施）
+- **ブランチ:** `main`（HEAD: `f6b65ab`）
+- **最新リリース:** v1.5.2（GitHub に MSI + SHA256SUMS.txt 添付済み）
 - **作業ツリーの状態:** クリーン
-- **次にすること:** 新しいセッションを開いて以下を実行:
+- **テスト:** 15件 PASS（`./gradlew test`）
 
-```
-docs/plans/2026-02-28-run-as-admin.md の実装計画を executing-plans スキルで実行してください。
-```
+### 機能一覧（main 統合済み）
 
-- **テスト:** `UpdateCheckerTest` 5件 PASS（`./gradlew test`）
+- アプリ登録（手動 / D&D）・起動・編集・削除
+- 管理者権限で実行（run-as-admin、PowerShell `Start-Process -Verb RunAs`）
+- ソート（手動 / A-Z / Z-A）
+- タグフィルタリング・検索バー
+- 最終起動時刻表示・アイコンキャッシュ
+- グリッド/リスト切り替え
+- 自動アップデート（サイレントインストール + 自動再起動、SHA-256 ハッシュ検証）
+- 最近使ったアプリセクション（横スクロール）
+
+### 重要な技術的注意事項
+
 - **Compose バージョン:** 1.7.1（`build.gradle.kts:5`）
-- **現在のバージョン:** 1.4.0（`build.gradle.kts:10`）
-
-### 実装計画の概要（`docs/plans/2026-02-28-run-as-admin.md`）
-
-```
-Task 1: AppEntry に runAsAdmin: Boolean = false を追加
-        → src/main/kotlin/com/applauncher/model/AppEntry.kt
-        → src/test/kotlin/com/applauncher/model/AppEntryTest.kt（新規）
-
-Task 2: ProcessLauncher に buildAdminCommand() + 分岐ロジック追加
-        → src/main/kotlin/com/applauncher/util/ProcessLauncher.kt
-        → src/test/kotlin/com/applauncher/util/ProcessLauncherTest.kt（新規）
-
-Task 3: EditAppDialog に Switch トグル追加
-        → src/main/kotlin/com/applauncher/ui/EditAppDialog.kt
-
-Task 4: 手動スモークテスト（./gradlew run で実機確認）
-
-Task 5: version = "1.5.0" にバンプ
-```
-
-- `main` ブランチに統合済みの機能:
-  - アプリ登録（手動 / D&D）・起動・編集・削除
-  - ソート（手動 / A-Z / Z-A）
-  - タグフィルタリング・検索バー
-  - 最終起動時刻表示・アイコンキャッシュ
-  - グリッド/リスト切り替え
-  - 自動アップデート（サイレントインストール + 自動再起動、SHA-256 ハッシュ検証）
-  - GitHub Actions 自動リリースワークフロー
-  - 最近使ったアプリセクション（横スクロール）
-  - セキュリティ修正（ACL、引数パース、ロギング等）
+- **リリースビルド:** `./gradlew packageMsi`（`packageReleaseMsi` は ProGuard 互換性問題で使用不可）
+- **D&D:** `findRenderingLayer()` が ComposeWindowPanel を特定して DropTarget を登録（`DropTargetArea.kt`）
+- **run-as-admin:** `ProcessLauncher.buildAdminCommand()` が PowerShell コマンドを構築（`-WorkingDirectory` 必須）
