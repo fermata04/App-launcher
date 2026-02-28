@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.applauncher"
-version = "1.5.1"
+version = "1.5.2"
 
 repositories {
     google()
