@@ -301,15 +301,31 @@ fun MainScreen(state: AppLauncherState, onExitApplication: () -> Unit = {}) {
                     if (viewMode == ViewMode.LIST) {
                         DropTargetArea(
                             onActiveChange = { isDropTargetActive = it },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(if (isDropTargetActive) 80.dp else 0.dp)
-                                .animateContentSize()
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            if (isDropTargetActive) {
+                            AnimatedVisibility(
+                                visible = isDropTargetActive,
+                                enter = expandVertically(
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    )
+                                ) + fadeIn(
+                                    animationSpec = spring(stiffness = Spring.StiffnessMedium)
+                                ),
+                                exit = shrinkVertically(
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    )
+                                ) + fadeOut(
+                                    animationSpec = spring(stiffness = Spring.StiffnessMedium)
+                                )
+                            ) {
                                 Box(
                                     modifier = Modifier
-                                        .fillMaxSize()
+                                        .fillMaxWidth()
+                                        .height(80.dp)
                                         .padding(8.dp)
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(DropTarget.copy(alpha = 0.2f))
