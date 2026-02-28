@@ -11,7 +11,8 @@ data class AppEntry(
     val arguments: String = "",
     val workingDirectory: String = "",
     val tags: List<String> = emptyList(),
-    val lastLaunchedAt: Long? = null
+    val lastLaunchedAt: Long? = null,
+    val runAsAdmin: Boolean = false
 ) {
     companion object {
         fun fromPath(path: String): AppEntry {
