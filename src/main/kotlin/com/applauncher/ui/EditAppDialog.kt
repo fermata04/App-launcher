@@ -28,6 +28,7 @@ fun EditAppDialog(
     var arguments by remember(entry) { mutableStateOf(entry?.arguments ?: "") }
     var workingDirectory by remember(entry) { mutableStateOf(entry?.workingDirectory ?: "") }
     var tags by remember(entry) { mutableStateOf(entry?.tags ?: emptyList()) }
+    var runAsAdmin by remember(entry) { mutableStateOf(entry?.runAsAdmin ?: false) }
     var newTagText by remember { mutableStateOf("") }
 
     AlertDialog(
@@ -108,6 +109,32 @@ fun EditAppDialog(
                         }
                     }
                 )
+
+                // Admin toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AdminPanelSettings,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                        Text(
+                            text = "管理者として起動",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    Switch(
+                        checked = runAsAdmin,
+                        onCheckedChange = { runAsAdmin = it }
+                    )
+                }
 
                 // Tags section
                 Text(
@@ -200,13 +227,15 @@ fun EditAppDialog(
                             path = path,
                             arguments = arguments,
                             workingDirectory = workingDirectory,
-                            tags = tags
+                            tags = tags,
+                            runAsAdmin = runAsAdmin
                         ) ?: AppEntry(
                             name = name,
                             path = path,
                             arguments = arguments,
                             workingDirectory = workingDirectory,
-                            tags = tags
+                            tags = tags,
+                            runAsAdmin = runAsAdmin
                         )
                         onSave(updatedEntry)
                     }
