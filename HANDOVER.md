@@ -1,16 +1,15 @@
 # HANDOVER - セッション引き継ぎドキュメント
 
-**日付:** 2026-02-24（セッション8）
-**ブランチ:** `main`（HEAD: `e1ffc67` — push 済み）
+**日付:** 2026-02-28（セッション9）
+**ブランチ:** `main`（HEAD: `590892a` — push 未実施）
 **リポジトリ:** https://github.com/fermata04/App-launcher.git
 
 ---
 
 ## 1. セッション概要
 
-前セッション（セッション7）で作成した `docs/plans/2026-02-24-compose-upgrade.md` を `/executing-plans` スキルで実行。
-Compose を 1.5.11 → 1.7.1 にアップグレードし、非推奨 API（`Divider`、`animateItemPlacement`、`LinearProgressIndicator`）をすべて置き換えた。
-テスト 5件 PASS・deprecation warning ゼロを確認してコミット＆push 完了。
+「登録したアプリを管理者権限で実行する」機能の設計と実装計画を作成した。
+`superpowers:brainstorming` → `superpowers:writing-plans` スキルの流れで設計ドキュメントと実装計画ドキュメントを `docs/plans/` に保存・コミット。コードの変更は次セッションで行う（別セッションで `/executing-plans` スキルにて実行予定）。
 
 ---
 
@@ -18,13 +17,10 @@ Compose を 1.5.11 → 1.7.1 にアップグレードし、非推奨 API（`Divi
 
 | ファイル | 変更内容 |
 |---------|---------|
-| `build.gradle.kts:5` | `org.jetbrains.compose` を `1.5.11` → `1.7.1` にバンプ |
-| `src/main/kotlin/com/applauncher/ui/AppListItem.kt:277,400,481` | `Divider()` × 3 → `HorizontalDivider()` |
-| `src/main/kotlin/com/applauncher/ui/MainScreen.kt:385-391` | `animateItemPlacement(animationSpec=...)` → `animateItem(fadeInSpec=null, fadeOutSpec=null, placementSpec=...)` |
-| `src/main/kotlin/com/applauncher/ui/UpdateDialog.kt:99` | `LinearProgressIndicator(progress = updateState.progress, ...)` → `progress = { updateState.progress }` |
-| `src/main/kotlin/com/applauncher/util/UpdateChecker.kt` | `downloadUpdate(asset, release)` シグネチャ変更・`fetchExpectedHash()` 削除（前セッション変更をまとめてコミット） |
+| `docs/plans/2026-02-28-run-as-admin-design.md` | 設計ドキュメント新規作成（コミット: `57f3c7e`） |
+| `docs/plans/2026-02-28-run-as-admin.md` | 実装計画ドキュメント新規作成（コミット: `590892a`） |
 
-**コミット:** `e1ffc67 chore: upgrade Compose to 1.7.1, replace deprecated APIs`
+**コード変更: なし**（設計・計画フェーズのみ）
 
 ---
 
@@ -32,24 +28,16 @@ Compose を 1.5.11 → 1.7.1 にアップグレードし、非推奨 API（`Divi
 
 | 判断 | 理由 |
 |------|------|
-| `animateItem()` の `fadeInSpec = null, fadeOutSpec = null` | 1.5.x の `animateItemPlacement` はフェードなしの動作だったため、同等の挙動を維持 |
-| `main` ブランチ直接作業（feature ブランチなし） | プランが `main` 直接を前提としており、変更量も小さいため PR 不要と判断 |
+| `AppEntry` に `runAsAdmin: Boolean = false` を追加 | デフォルト `false` で既存 JSON データとの後方互換性を維持 |
+| 管理者起動の実装: PowerShell `Start-Process -Verb RunAs` | 追加ライブラリ不要・UAC ダイアログは Windows 標準に委ねる |
+| UI: `EditAppDialog` にトグルのみ追加（コンテキストメニューは変更なし） | 「常に管理者権限で起動」の設定のみ。オンデマンド起動は不要とユーザーが判断 |
+| リスト/グリッド画面に視覚インジケーター（盾アイコン等）は表示しない | シンプルな実装を優先。設定ダイアログで確認できれば十分とユーザーが判断 |
 
 ---
 
 ## 4. 試行錯誤したポイント
 
-- **`./gradlew compileKotlin` が UP-TO-DATE でスキップされた**: `build.gradle.kts` のバージョンを変更しただけではソースの再コンパイルがトリガーされない。`./gradlew clean compileKotlin` が必要。
-
-```bash
-# NG: UP-TO-DATE でスキップされる
-./gradlew compileKotlin
-
-# OK: クリーンしてから再コンパイル
-./gradlew clean compileKotlin
-```
-
-- **Compose 1.7.1 は deprecated API をエラーではなく warning で通す**: プランでは「1.7.x でエラーになる」と想定していたが、実際には `BUILD SUCCESSFUL`（warning あり）。修正は念のため全件実施した。
+特になし（コーディングなし）。
 
 ---
 
@@ -57,42 +45,70 @@ Compose を 1.5.11 → 1.7.1 にアップグレードし、非推奨 API（`Divi
 
 | 手法 | 却下理由 |
 |------|---------|
-| `animateItem()` に `animationSpec` をそのまま渡す | 1.7.x の `animateItem` は `placementSpec` パラメータに変わっており直接渡せない |
+| JNA + `ShellExecuteEx("runas")` | 追加依存（`jna-platform`）が必要。PowerShell で代替可能なため不要 |
+| コンテキストメニューに「管理者として起動」を追加（オンデマンド） | ユーザーが「アプリ設定（常に管理者権限）」の方を希望したため採用せず |
+| リスト画面に管理者アイコン表示 | ユーザーが不要と判断 |
 
 ---
 
 ## 6. 学んだ教訓
 
-- Gradle は `build.gradle.kts` 変更後も、ソースが変わっていなければ `compileKotlin` を UP-TO-DATE と判断する。バージョンバンプ後の動作確認は `clean` を挟む
-- Compose のメジャーバージョンアップでも deprecated API はすぐには error にならない（warning 止まり）。CI で `-Werror` を使わない限り既存ビルドは通る
+特になし（コーディングなし）。
 
 ---
 
 ## 7. 残タスク / TODO
 
-### 最優先（手動確認）
+### 最優先（次セッションで実行）
 
-- **スモークテスト**（実機で以下を確認）:
-  - [ ] アプリが起動する
-  - [ ] リスト表示 → MoreVert ボタン → DropdownMenu にセパレータが表示される
-  - [ ] グリッド表示 → 右クリック → DropdownMenu にセパレータが表示される
-  - [ ] リスト表示でアプリをドラッグ＆ドロップ → アニメーション（`animateItem`）が機能する
-  - [ ] アップデートダイアログを開く（更新あり状態で） → プログレスバーが表示される
+`docs/plans/2026-02-28-run-as-admin.md` を `/executing-plans` スキルで実行する:
+
+- [ ] **Task 1:** `AppEntry` に `runAsAdmin: Boolean = false` を追加 + `AppEntryTest` 3件
+- [ ] **Task 2:** `ProcessLauncher` に `buildAdminCommand()` + 管理者起動分岐 + `ProcessLauncherTest` 4件
+- [ ] **Task 3:** `EditAppDialog` に Switch トグル追加（`管理者として起動`）
+- [ ] **Task 4:** 手動スモークテスト（UAC ダイアログ確認）
+- [ ] **Task 5:** バージョン `1.5.0` にバンプ
 
 ### その後
 
 - ライトテーマ対応（`Main.kt` のハードコード解消）— 低優先度
-- v1.4.0 のサイレントインストール実機確認（未実施であれば）
+- セッション8 のスモークテスト（`animateItem` アニメーション、プログレスバー等）— 未実施であれば
 
 ---
 
 ## 8. 次のセッションへの申し送り
 
-- **ブランチ:** `main`（HEAD: `e1ffc67`、origin に push 済み）
-- **作業ツリーの状態:** クリーン（`docs/plans/2026-02-24-compose-upgrade.md` のみ untracked → このセッションでコミット予定）
-- **Compose バージョン:** 1.7.1（`build.gradle.kts:5`）
+- **ブランチ:** `main`（HEAD: `590892a`、origin への push 未実施）
+- **作業ツリーの状態:** クリーン
+- **次にすること:** 新しいセッションを開いて以下を実行:
+
+```
+docs/plans/2026-02-28-run-as-admin.md の実装計画を executing-plans スキルで実行してください。
+```
+
 - **テスト:** `UpdateCheckerTest` 5件 PASS（`./gradlew test`）
-- **deprecated warning:** コードレベルでゼロ（Gradle プラグイン警告のみ残存、Gradle 9.0 互換性のもの）
+- **Compose バージョン:** 1.7.1（`build.gradle.kts:5`）
+- **現在のバージョン:** 1.4.0（`build.gradle.kts:10`）
+
+### 実装計画の概要（`docs/plans/2026-02-28-run-as-admin.md`）
+
+```
+Task 1: AppEntry に runAsAdmin: Boolean = false を追加
+        → src/main/kotlin/com/applauncher/model/AppEntry.kt
+        → src/test/kotlin/com/applauncher/model/AppEntryTest.kt（新規）
+
+Task 2: ProcessLauncher に buildAdminCommand() + 分岐ロジック追加
+        → src/main/kotlin/com/applauncher/util/ProcessLauncher.kt
+        → src/test/kotlin/com/applauncher/util/ProcessLauncherTest.kt（新規）
+
+Task 3: EditAppDialog に Switch トグル追加
+        → src/main/kotlin/com/applauncher/ui/EditAppDialog.kt
+
+Task 4: 手動スモークテスト（./gradlew run で実機確認）
+
+Task 5: version = "1.5.0" にバンプ
+```
+
 - `main` ブランチに統合済みの機能:
   - アプリ登録（手動 / D&D）・起動・編集・削除
   - ソート（手動 / A-Z / Z-A）
