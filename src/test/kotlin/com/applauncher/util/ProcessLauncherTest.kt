@@ -48,4 +48,37 @@ class ProcessLauncherTest {
         val cmd = ProcessLauncher.buildAdminCommand(entry)
         assertContains(cmd.joinToString(" "), "My''App")
     }
+
+    @Test
+    fun `buildAdminCommand includes WorkingDirectory defaulting to exe parent dir`() {
+        val entry = AppEntry(name = "Test", path = "D:\\Games\\App\\app.exe", runAsAdmin = true)
+        val cmd = ProcessLauncher.buildAdminCommand(entry)
+        assertContains(cmd.joinToString(" "), "-WorkingDirectory")
+        assertContains(cmd.joinToString(" "), "D:\\Games\\App")
+    }
+
+    @Test
+    fun `buildAdminCommand uses explicit workingDirectory when set`() {
+        val entry = AppEntry(
+            name = "Test",
+            path = "D:\\Games\\App\\app.exe",
+            workingDirectory = "D:\\Games\\App\\custom",
+            runAsAdmin = true
+        )
+        val cmd = ProcessLauncher.buildAdminCommand(entry)
+        assertContains(cmd.joinToString(" "), "-WorkingDirectory")
+        assertContains(cmd.joinToString(" "), "D:\\Games\\App\\custom")
+    }
+
+    @Test
+    fun `buildAdminCommand escapes single quotes in WorkingDirectory`() {
+        val entry = AppEntry(
+            name = "Test",
+            path = "D:\\My'Games\\app.exe",
+            runAsAdmin = true
+        )
+        val cmd = ProcessLauncher.buildAdminCommand(entry)
+        assertContains(cmd.joinToString(" "), "-WorkingDirectory")
+        assertContains(cmd.joinToString(" "), "My''Games")
+    }
 }

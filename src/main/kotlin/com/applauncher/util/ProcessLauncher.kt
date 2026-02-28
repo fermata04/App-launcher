@@ -16,11 +16,20 @@ object ProcessLauncher {
 
     internal fun buildAdminCommand(entry: AppEntry): List<String> {
         val escapedPath = entry.path.replace("'", "''")
+        val workDir = if (entry.workingDirectory.isNotBlank()) {
+            entry.workingDirectory
+        } else {
+            File(entry.path).parent ?: ""
+        }
         val psCommand = buildString {
             append("Start-Process -FilePath '$escapedPath'")
             if (entry.arguments.isNotBlank()) {
                 val escapedArgs = entry.arguments.replace("'", "''")
                 append(" -ArgumentList '$escapedArgs'")
+            }
+            if (workDir.isNotBlank()) {
+                val escapedWorkDir = workDir.replace("'", "''")
+                append(" -WorkingDirectory '$escapedWorkDir'")
             }
             append(" -Verb RunAs")
         }
