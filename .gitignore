@@ -9,6 +9,9 @@ build/
 # Claude Code
 .claude/
 
+# Worktrees
+.worktrees/
+
 # Secrets
 token.txt
 
