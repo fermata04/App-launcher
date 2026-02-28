@@ -14,6 +14,19 @@ object ProcessLauncher {
         return result
     }
 
+    internal fun buildAdminCommand(entry: AppEntry): List<String> {
+        val escapedPath = entry.path.replace("'", "''")
+        val psCommand = buildString {
+            append("Start-Process -FilePath '$escapedPath'")
+            if (entry.arguments.isNotBlank()) {
+                val escapedArgs = entry.arguments.replace("'", "''")
+                append(" -ArgumentList '$escapedArgs'")
+            }
+            append(" -Verb RunAs")
+        }
+        return listOf("powershell.exe", "-NonInteractive", "-Command", psCommand)
+    }
+
     fun launch(entry: AppEntry): Boolean {
         return try {
             val file = File(entry.path)
@@ -21,9 +34,14 @@ object ProcessLauncher {
                 println("File not found: ${entry.path}")
                 return false
             }
-            
+
+            if (entry.runAsAdmin) {
+                ProcessBuilder(buildAdminCommand(entry)).start()
+                return true
+            }
+
             val processBuilder = ProcessBuilder()
-            
+
             when (file.extension.lowercase()) {
                 "exe", "bat", "cmd" -> {
                     val command = mutableListOf(entry.path)
@@ -39,14 +57,14 @@ object ProcessLauncher {
                     processBuilder.command("cmd", "/c", "start", "", entry.path)
                 }
             }
-            
+
             if (entry.workingDirectory.isNotBlank()) {
                 val workDir = File(entry.workingDirectory)
                 if (workDir.exists() && workDir.isDirectory) {
                     processBuilder.directory(workDir)
                 }
             }
-            
+
             processBuilder.start()
             true
         } catch (e: Exception) {
