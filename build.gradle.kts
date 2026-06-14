@@ -1,14 +1,14 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
-    kotlin("jvm") version "2.3.20"
+    kotlin("jvm") version "2.4.0"
     id("org.jetbrains.compose") version "1.10.0"
-    kotlin("plugin.compose") version "2.3.20"
-    kotlin("plugin.serialization") version "2.3.20"
+    kotlin("plugin.compose") version "2.4.0"
+    kotlin("plugin.serialization") version "2.4.0"
 }
 
 group = "com.applauncher"
-version = "1.5.5"
+version = "1.5.6"
 
 repositories {
     google()
@@ -22,14 +22,14 @@ dependencies {
     implementation(compose.materialIconsExtended)
 
     // Kotlinx Serialization for JSON
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.11.0")
 
     // OkHttp for HTTP requests (update checker)
-    implementation("com.squareup.okhttp3:okhttp:5.3.0")
+    implementation("com.squareup.okhttp3:okhttp:5.4.0")
 
     testImplementation(kotlin("test"))
 }
