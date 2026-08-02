@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "com.applauncher"
-version = "1.5.6"
+version = "1.5.7"
 
 repositories {
     google()
@@ -69,7 +69,7 @@ compose.desktop {
             windows {
                 menuGroup = "AppLauncher"
                 upgradeUuid = "A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
-                shortcut = true
+                shortcut = false
                 dirChooser = true
                 perUserInstall = true
                 iconFile.set(project.file("src/main/resources/icon.ico"))
